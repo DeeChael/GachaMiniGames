@@ -117,7 +117,8 @@ export default function EditorPage() {
     return map;
   }, [pieces, drag]);
 
-  const cellSize = Math.max(30, Math.min(52, Math.floor(560 / Math.max(cols, rows))));
+  // 编辑器网格也尽量显示大：小网格吃满单格上限，大网格受总像素预算约束
+  const cellSize = Math.max(34, Math.min(72, Math.floor(680 / Math.max(cols, rows))));
 
   // ---------------- 拖拽安放 ----------------
 

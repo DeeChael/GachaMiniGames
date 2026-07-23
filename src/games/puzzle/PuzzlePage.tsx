@@ -187,7 +187,8 @@ export function PuzzleGame({ level, onExit, onRestart }: { level: Level; onExit:
   const [won, setWon] = useState(false);
   const boardRef = useRef<HTMLDivElement>(null);
 
-  const cellSize = Math.max(30, Math.min(58, Math.floor(680 / Math.max(cols, rows))));
+  // 网格尽量显示大：小网格吃满单格上限，大网格受总像素预算约束
+  const cellSize = Math.max(36, Math.min(88, Math.floor(720 / Math.max(cols, rows))));
   const barLen = Math.min(22, Math.max(12, cellSize * 0.42));
   const blockedSet = useMemo(() => new Set(level.blocked.map(([x, y]) => cellKey(x, y))), [level]);
 
@@ -516,10 +517,6 @@ export function PuzzleGame({ level, onExit, onRestart }: { level: Level; onExit:
               });
             })}
           </div>
-
-          <div className="mt-4 text-center text-sm tracking-wider text-neutral-500">
-            拖拽拼图放入网格 · 按 R 旋转 · 拖出网格放回库存 · 行列颜色指示全部点亮即完成
-          </div>
         </div>
 
         {/* 托盘 */}
@@ -547,6 +544,9 @@ export function PuzzleGame({ level, onExit, onRestart }: { level: Level; onExit:
                   全部放置完毕
                 </div>
               )}
+            </div>
+            <div className="border-t border-neutral-800 px-4 py-3 text-xs leading-5 text-neutral-600">
+              拖拽拼图放入网格 · 按 R 旋转 · 拖出网格放回库存 · 行列颜色指示全部点亮即完成
             </div>
           </div>
         </div>

@@ -464,9 +464,9 @@ export function BalloonGame({
                   </div>
                 );
               })}
-              <div className="pt-1 text-xs leading-5 text-neutral-600">
-                拖动气球到网格放置 · 拖动已放置的气球可移动 · 拖出网格取下
-              </div>
+            </div>
+            <div className="border-t border-neutral-800 px-4 py-3 text-xs leading-5 text-neutral-600">
+              拖动气球到网格放置 · 拖动已放置的气球可移动 · 拖出网格取下
             </div>
           </div>
         </div>
