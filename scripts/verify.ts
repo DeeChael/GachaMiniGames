@@ -8,6 +8,10 @@ import { PRESET_SHAPES } from '../src/games/puzzle/presetShapes';
 import { solvable } from '../src/games/puzzle/solver';
 import { BUILTIN_LEVELS as BALLOON_LEVELS } from '../src/games/balloon/levels';
 import { decodeBalloonLevel, encodeBalloonLevel } from '../src/games/balloon/shareCode';
+import { BUILTIN_LEVELS as PLAT_LEVELS } from '../src/games/platjump/levels';
+import { decodePlatLevel, encodePlatLevel } from '../src/games/platjump/shareCode';
+import { validatePlatLevel, type Dir } from '../src/games/platjump/types';
+import { buildCtx, createGame, stepGame } from '../src/games/platjump/engine';
 import {
   cellKey as bCellKey,
   netLift,
@@ -132,6 +136,25 @@ for (const lv of BALLOON_LEVELS) {
   const roundtrip = canonical(back) === canonical(lv);
   console.log(`气球「${lv.name}」: ${structural.length ? 'INVALID ' + structural.join(',') : 'valid'} solvable=${ok} 分享码往返=${roundtrip ? 'OK' : 'MISMATCH'}`);
   if (structural.length || !ok || !roundtrip) fail++;
+}
+
+// 5. 黄金替罪羊内置关卡：结构合法 + 脚本操作序列可通关 + 分享码往返
+const PLAT_SOLUTIONS: Dir[][] = [
+  ['D', 'D', 'D', 'D', 'W', 'D'], // 入门
+  ['D', 'D', 'D', 'D', 'D', 'D', 'D', 'D', 'D'], // 替罪之桥
+];
+for (let i = 0; i < PLAT_LEVELS.length; i++) {
+  const lv = PLAT_LEVELS[i];
+  const errs = validatePlatLevel(lv);
+  const ctx = buildCtx(lv);
+  let st = createGame(lv);
+  for (const d of PLAT_SOLUTIONS[i]) st = stepGame(lv, ctx, st, d);
+  const won = st.status === 'won';
+  const code = encodePlatLevel(lv);
+  const back = decodePlatLevel(code);
+  const roundtrip = canonical(back) === canonical(lv);
+  console.log(`替罪羊「${lv.name}」: ${errs.length ? 'INVALID ' + errs.join(',') : 'valid'} 通关=${won} 分享码往返=${roundtrip ? 'OK' : 'MISMATCH'}`);
+  if (errs.length || !won || !roundtrip) fail++;
 }
 
 console.log(fail === 0 ? '\n全部通过 ✓' : `\n失败 ${fail} 项 ✗`);

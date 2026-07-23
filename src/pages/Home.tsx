@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { decodeLevel } from '../games/puzzle/shareCode';
 import { decodeBalloonLevel } from '../games/balloon/shareCode';
+import { decodePlatLevel } from '../games/platjump/shareCode';
 
 interface GameEntry {
   name: string;
@@ -24,6 +25,13 @@ const GAMES: GameEntry[] = [
     game: '明日方舟：终末地',
     logo: `${import.meta.env.BASE_URL}logos/endfield.png`,
     path: '/balloon',
+    ready: true,
+  },
+  {
+    name: '黄金替罪羊',
+    game: '崩坏：星穹铁道',
+    logo: `${import.meta.env.BASE_URL}logos/starrail.png`,
+    path: '/platjump',
     ready: true,
   },
   // 后续小游戏在这里添加
@@ -59,7 +67,16 @@ export default function Home() {
       }
       return;
     }
-    setCodeError('无法识别的分享码（支持 EPZ2_ / EBL1_ 开头）');
+    if (v.startsWith('SPJ2_')) {
+      try {
+        decodePlatLevel(v);
+        navigate(`/platjump?code=${encodeURIComponent(v)}`);
+      } catch (e) {
+        setCodeError((e as Error).message);
+      }
+      return;
+    }
+    setCodeError('无法识别的分享码（支持 EPZ2_ / EBL1_ / SPJ2_ 开头）');
   };
 
   return (

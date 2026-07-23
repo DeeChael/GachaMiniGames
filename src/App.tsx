@@ -4,6 +4,8 @@ import PuzzlePage from './games/puzzle/PuzzlePage';
 import EditorPage from './games/puzzle/EditorPage';
 import BalloonPage from './games/balloon/BalloonPage';
 import BalloonEditorPage from './games/balloon/EditorPage';
+import PlatjumpPage from './games/platjump/PlatjumpPage';
+import PlatjumpEditorPage from './games/platjump/EditorPage';
 
 // 顶栏菜单：按二游分组，选项显示游戏 logo，悬停下拉显示小游戏名称
 interface NavGame {
@@ -20,6 +22,11 @@ const NAV_MENU: NavGame[] = [
       { name: '电路修复', path: '/puzzle' },
       { name: '浮空回收', path: '/balloon' },
     ],
+  },
+  {
+    game: '崩坏：星穹铁道',
+    logo: `${import.meta.env.BASE_URL}logos/starrail.png`,
+    items: [{ name: '黄金替罪羊', path: '/platjump' }],
   },
   // 后续二游在这里添加
 ];
@@ -71,6 +78,8 @@ export default function App() {
         <Route path="/puzzle/editor" element={<EditorPage />} />
         <Route path="/balloon" element={<BalloonPage />} />
         <Route path="/balloon/editor" element={<BalloonEditorPage />} />
+        <Route path="/platjump" element={<PlatjumpPage />} />
+        <Route path="/platjump/editor" element={<PlatjumpEditorPage />} />
       </Routes>
     </div>
   );
