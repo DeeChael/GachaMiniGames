@@ -69,7 +69,10 @@ export default function BalloonEditorPage() {
   const canDrop = useCallback(
     (x: number, y: number, from: string | null) => {
       const k = cellKey(x, y);
-      return placeable.has(k) && (!placed[k] || k === from);
+      if (!placeable.has(k)) return false;
+      if (!placed[k]) return true;
+      // 目标格已有气球：仅允许拖动的已放置气球与其交换位置
+      return from !== null;
     },
     [placeable, placed],
   );
@@ -84,8 +87,10 @@ export default function BalloonEditorPage() {
       }
       setPlaced((p) => {
         const np = { ...p };
+        const target = np[k];
         if (from) delete np[from];
         np[k] = value;
+        if (from && target) np[from] = target; // 与目标格的气球交换位置
         return np;
       });
     },

@@ -235,7 +235,10 @@ export function BalloonGame({
   const canDrop = useCallback(
     (x: number, y: number, from: string | null) => {
       const k = cellKey(x, y);
-      return placeableSet.has(k) && (!placed[k] || k === from);
+      if (!placeableSet.has(k)) return false;
+      if (!placed[k]) return true;
+      // 目标格已有气球：仅允许拖动的已放置气球与其交换位置
+      return from !== null;
     },
     [placeableSet, placed],
   );
@@ -244,8 +247,10 @@ export function BalloonGame({
     if (from === k) return; // 拖回原位
     setPlaced((p) => {
       const np = { ...p };
+      const target = np[k];
       if (from) delete np[from];
       np[k] = value;
+      if (from && target) np[from] = target; // 与目标格的气球交换位置
       return np;
     });
   }, []);
