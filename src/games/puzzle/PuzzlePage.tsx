@@ -9,6 +9,7 @@ import type { Cell, ColorCount, Level, PieceColor } from './types';
 import {
   ALL_COLORS,
   PIECE_COLORS,
+  canonicalCells,
   cellKey,
   centroidCell,
   normalizeCells,
@@ -94,7 +95,9 @@ function buildPieces(level: Level): { pieces: GamePiece[]; placements: Record<st
   const placements: Record<string, Placement | null> = {};
   level.pieces.forEach((p, i) => {
     const id = `p${i}`;
-    pieces.push({ id, baseCells: normalizeCells(p.cells), color: p.color, locked: !!p.locked });
+    // 预放置拼图保留解的朝向；交给玩家的拼图统一用标准朝向，避免泄露摆放角度
+    const cells = p.locked ? normalizeCells(p.cells) : canonicalCells(p.cells);
+    pieces.push({ id, baseCells: cells, color: p.color, locked: !!p.locked });
     placements[id] = p.locked ? { x: p.x ?? 0, y: p.y ?? 0, rotation: 0 } : null;
   });
   return { pieces, placements };

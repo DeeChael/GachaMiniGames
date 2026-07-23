@@ -112,6 +112,25 @@ export function cellsSignature(cells: Cell[]): string {
     .join(';');
 }
 
+/**
+ * 形状的标准朝向：4 个旋转角度中签名最小的一个。
+ * 用于玩家托盘：相同形状的拼图统一按标准朝向显示，
+ * 不保留编辑时的旋转角度（否则会泄露解的摆放朝向）
+ */
+export function canonicalCells(cells: Cell[]): Cell[] {
+  let best = normalizeCells(cells);
+  let bestSig = cellsSignature(cells);
+  for (let r = 1; r < 4; r++) {
+    const rotated = rotateCells(cells, r);
+    const sig = cellsSignature(rotated);
+    if (sig < bestSig) {
+      bestSig = sig;
+      best = rotated;
+    }
+  }
+  return best;
+}
+
 /** 形状的宽高 */
 export function shapeBounds(cells: Cell[]): { w: number; h: number } {
   return {

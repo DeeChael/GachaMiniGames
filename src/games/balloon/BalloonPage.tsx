@@ -50,7 +50,7 @@ export function BalloonIcon({ value, size = 40 }: { value: BalloonValue; size?: 
 const BAR_GREEN = '#1fe0b0';
 const BAR_YELLOW = '#f0a832';
 
-function LiftBar({
+export function LiftBar({
   net,
   vertical,
   length,
@@ -142,8 +142,18 @@ function LiftBar({
 // 偏向一个角时该角点不透明度最大，向相邻两角渐变为 0；
 // 偏向一边时靠近该边的两个角点最大，向相反角渐变为 0
 
-function ImbalanceGlow({ net }: { net: { x: number; y: number } }) {
+export function ImbalanceGlow({
+  net,
+  cell,
+  gap,
+}: {
+  net: { x: number; y: number };
+  cell: number;
+  gap: number;
+}) {
   if (net.x === 0 && net.y === 0) return null;
+  const step = cell + gap;
+  const board = GRID * cell + (GRID - 1) * gap;
   const dx = Math.sign(net.x);
   const dy = Math.sign(net.y);
   // 角点不透明度权重：sx/sy ∈ {-1, 1}
@@ -156,8 +166,8 @@ function ImbalanceGlow({ net }: { net: { x: number; y: number } }) {
   // 两条交界线（正方形），画在缝隙中心，与格子边缘留距：
   // 中心格 ↔ 3x3 的缝隙、3x3 ↔ 5x5 的缝隙
   const squares = [
-    { o: 2 * STEP - GAP / 2, s: CELL + GAP },
-    { o: STEP - GAP / 2, s: 3 * CELL + 3 * GAP },
+    { o: 2 * step - gap / 2, s: cell + gap },
+    { o: step - gap / 2, s: 3 * cell + 3 * gap },
   ];
   const defs: React.ReactNode[] = [];
   const lines: React.ReactNode[] = [];
@@ -190,8 +200,8 @@ function ImbalanceGlow({ net }: { net: { x: number; y: number } }) {
   return (
     <svg
       className="pointer-events-none absolute inset-0"
-      width={BOARD}
-      height={BOARD}
+      width={board}
+      height={board}
       style={{ zIndex: 5, filter: 'drop-shadow(0 0 6px rgba(240,192,32,0.55))' }}
     >
       <defs>{defs}</defs>
@@ -415,7 +425,7 @@ export function BalloonGame({
                 />
               )}
               {/* 网格内的不平衡提示（两条交界线渐变） */}
-              <ImbalanceGlow net={net} />
+              <ImbalanceGlow net={net} cell={CELL} gap={GAP} />
             </div>
           </div>
         </div>

@@ -1,7 +1,7 @@
 // ============================================================
 // 浮空回收 —— 关卡编辑器
 // 左侧网格：切换可放置格 + 摆放气球（即关卡的解，必须升力平衡）
-// 右侧：四种气球的 stepper 加减数量；所有气球都必须放上网格
+// 右侧：气球库存（数量 = 网格上已放置的数量，放上去多少就是多少）
 // ============================================================
 
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -13,9 +13,10 @@ import {
   GRID,
   cellKey,
   cellShade,
+  netLift,
   validateBalloonLevel,
 } from './types';
-import { BalloonIcon } from './BalloonPage';
+import { BalloonIcon, ImbalanceGlow, LiftBar } from './BalloonPage';
 import { encodeBalloonLevel } from './shareCode';
 import { useBalloonDrag } from './useBalloonDrag';
 
@@ -24,6 +25,7 @@ type Tool = 'place' | 'toggle';
 const CELL = 56;
 const GAP = 8;
 const STEP = CELL + GAP;
+const BOARD = GRID * STEP - GAP;
 
 export default function BalloonEditorPage() {
   const navigate = useNavigate();
@@ -31,7 +33,6 @@ export default function BalloonEditorPage() {
   const [placeable, setPlaceable] = useState<Set<string>>(
     () => new Set(Array.from({ length: GRID * GRID }, (_, i) => cellKey(i % GRID, Math.floor(i / GRID)))),
   );
-  const [counts, setCounts] = useState<Record<BalloonValue, number>>({ 1: 0, 2: 0, 3: 0, 6: 0 });
   const [placed, setPlaced] = useState<Record<string, BalloonValue>>({});
   const [tool, setTool] = useState<Tool>('place');
   const boardRef = useRef<HTMLDivElement>(null);
@@ -46,23 +47,21 @@ export default function BalloonEditorPage() {
       }),
     [placed],
   );
+  const net = useMemo(() => netLift(placedList), [placedList]);
 
+  // 库存数量跟随网格上的放置：放上去多少就是多少
   const level: BalloonLevel = useMemo(
     () => ({
       name: name.trim() || '自定义关卡',
       placeable: [...placeable].map((k) => k.split(',').map(Number) as [number, number]),
-      balloons: BALLOON_VALUES.flatMap((v) => Array.from({ length: counts[v] }, () => v)),
+      balloons: Object.values(placed),
     }),
-    [name, placeable, counts],
+    [name, placeable, placed],
   );
 
   const errors = validateBalloonLevel(level, placedList);
 
-  const remaining = (v: BalloonValue) =>
-    counts[v] - Object.values(placed).filter((b) => b === v).length;
-
-  const bump = (v: BalloonValue, d: number) =>
-    setCounts((c) => ({ ...c, [v]: Math.max(0, Math.min(12, c[v] + d)) }));
+  const placedCount = (v: BalloonValue) => Object.values(placed).filter((b) => b === v).length;
 
   // ---------------- 拖拽放置 ----------------
 
@@ -76,26 +75,18 @@ export default function BalloonEditorPage() {
     },
     [placeable, placed],
   );
-  const onDrop = useCallback(
-    (value: BalloonValue, from: string | null, x: number, y: number) => {
-      const k = cellKey(x, y);
-      if (from === k) return; // 拖回原位
-      // 从库存拖出且余量不足时，放置成功后库存自动 +1
-      if (from === null) {
-        const placedV = Object.values(placed).filter((b) => b === value).length;
-        setCounts((c) => (placedV + 1 > c[value] ? { ...c, [value]: c[value] + 1 } : c));
-      }
-      setPlaced((p) => {
-        const np = { ...p };
-        const target = np[k];
-        if (from) delete np[from];
-        np[k] = value;
-        if (from && target) np[from] = target; // 与目标格的气球交换位置
-        return np;
-      });
-    },
-    [placed],
-  );
+  const onDrop = useCallback((value: BalloonValue, from: string | null, x: number, y: number) => {
+    const k = cellKey(x, y);
+    if (from === k) return; // 拖回原位
+    setPlaced((p) => {
+      const np = { ...p };
+      const target = np[k];
+      if (from) delete np[from];
+      np[k] = value;
+      if (from && target) np[from] = target; // 与目标格的气球交换位置
+      return np;
+    });
+  }, []);
   const onRemove = useCallback((from: string) => {
     setPlaced((p) => {
       const np = { ...p };
@@ -173,11 +164,21 @@ export default function BalloonEditorPage() {
               {tool === 'toggle' && '点击格子切换是否允许放置气球（有气球占用的格子需先移除气球）'}
             </div>
 
-            <div
-              ref={boardRef}
-              className="relative inline-block"
-              style={{ width: GRID * STEP - GAP, height: GRID * STEP - GAP }}
-            >
+            <div className="relative inline-block" style={{ paddingLeft: 24, paddingBottom: 44 }}>
+              {/* 左侧升力条（上下） */}
+              <div className="absolute" style={{ left: 0, top: 0 }}>
+                <LiftBar net={net.y} vertical length={BOARD} />
+              </div>
+              {/* 下侧升力条（左右） */}
+              <div className="absolute" style={{ top: BOARD + 20, left: 24 }}>
+                <LiftBar net={net.x} vertical={false} length={BOARD} />
+              </div>
+
+              <div
+                ref={boardRef}
+                className="relative inline-block"
+                style={{ width: BOARD, height: BOARD }}
+              >
               {Array.from({ length: GRID }, (_, y) =>
                 Array.from({ length: GRID }, (_, x) => {
                   const k = cellKey(x, y);
@@ -230,6 +231,9 @@ export default function BalloonEditorPage() {
                   }}
                 />
               )}
+              {/* 网格内的不平衡提示（两条交界线渐变） */}
+              <ImbalanceGlow net={net} cell={CELL} gap={GAP} />
+              </div>
             </div>
 
           </div>
@@ -245,7 +249,7 @@ export default function BalloonEditorPage() {
               />
             </div>
 
-            {/* 气球 stepper */}
+            {/* 气球库存（数量 = 网格上已放置的数量） */}
             <div>
               <label className="mb-1.5 block text-xs tracking-widest text-neutral-500">气球库存</label>
               <div className="space-y-2">
@@ -267,39 +271,15 @@ export default function BalloonEditorPage() {
                     <div className="min-w-0 flex-1">
                       <div className="text-sm text-neutral-200">{BALLOON_INFO[v].name}</div>
                       <div className="mt-0.5 text-xs text-neutral-500">
-                        [升力...{v}⬆]{counts[v] > 0 && ` · 已放置 ${counts[v] - remaining(v)}/${counts[v]}`}
+                        [升力...{v}⬆]{placedCount(v) > 0 && ` · 已放置 ${placedCount(v)}`}
                       </div>
-                    </div>
-                    <div
-                      className="flex items-center gap-1"
-                      onClick={(e) => e.stopPropagation()}
-                      onPointerDown={(e) => e.stopPropagation()}
-                    >
-                      <button
-                        onClick={() => bump(v, -1)}
-                        disabled={counts[v] === 0}
-                        className="flex h-7 w-7 items-center justify-center border border-neutral-700 text-neutral-300 hover:border-neutral-500 disabled:opacity-30"
-                      >
-                        −
-                      </button>
-                      <span className="w-7 text-center text-base font-bold text-neutral-200">{counts[v]}</span>
-                      <button
-                        onClick={() => bump(v, 1)}
-                        disabled={counts[v] >= 12}
-                        className="flex h-7 w-7 items-center justify-center border border-neutral-700 text-neutral-300 hover:border-neutral-500 disabled:opacity-30"
-                      >
-                        ＋
-                      </button>
                     </div>
                   </div>
                 ))}
               </div>
               {/* 清理按钮 */}
               <button
-                onClick={() => {
-                  setPlaced({});
-                  setCounts({ 1: 0, 2: 0, 3: 0, 6: 0 });
-                }}
+                onClick={() => setPlaced({})}
                 className="mt-2 w-full border border-neutral-700 px-4 py-2.5 text-sm text-neutral-300 hover:border-neutral-500"
               >
                 清理所有气球
@@ -310,6 +290,14 @@ export default function BalloonEditorPage() {
                 className="mt-2 w-full border border-neutral-700 px-4 py-2.5 text-sm text-neutral-300 hover:border-neutral-500 disabled:cursor-not-allowed disabled:opacity-30"
               >
                 仅已放置气球格可放置
+              </button>
+              <button
+                onClick={() =>
+                  setPlaceable(new Set(Array.from({ length: GRID * GRID }, (_, i) => cellKey(i % GRID, Math.floor(i / GRID)))))
+                }
+                className="mt-2 w-full border border-neutral-700 px-4 py-2.5 text-sm text-neutral-300 hover:border-neutral-500"
+              >
+                激活所有格
               </button>
             </div>
 
@@ -322,7 +310,7 @@ export default function BalloonEditorPage() {
                   ))}
                 </ul>
               ) : (
-                <div className="mb-3 text-xs text-[#a6e22e]">✓ 关卡合法：气球全部放置且升力平衡</div>
+                <div className="mb-3 text-xs text-[#a6e22e]">✓ 关卡合法，升力平衡</div>
               )}
               <div className="flex gap-2">
                 <button

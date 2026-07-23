@@ -80,7 +80,7 @@ export function validateBalloonLevel(
 ): string[] {
   const errors: string[] = [];
   const total = level.balloons.length;
-  if (total === 0) errors.push('至少需要添加一个气球');
+  if (total === 0) errors.push('至少需要在网格上放置一个气球');
   if (level.placeable.length < total) {
     errors.push(`可放置格数量（${level.placeable.length}）小于气球数量（${total}）`);
   }
