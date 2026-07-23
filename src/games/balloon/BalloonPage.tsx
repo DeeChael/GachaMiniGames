@@ -4,7 +4,7 @@
 // ============================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import type { BalloonLevel, BalloonValue, Placed } from './types';
 import {
   BALLOON_INFO,
@@ -16,6 +16,7 @@ import {
   netLift,
 } from './types';
 import { BUILTIN_LEVELS } from './levels';
+import { decodeBalloonLevel } from './shareCode';
 import { useBalloonDrag } from './useBalloonDrag';
 
 // ---------------- 气球图标 ----------------
@@ -44,19 +45,21 @@ export function BalloonIcon({ value, size = 40 }: { value: BalloonValue; size?: 
 
 // ---------------- 升力平衡指示条 ----------------
 // 竖直条（网格左侧）表示上下升力，水平条（网格下侧）表示左右升力
-// 从中心向升力更大的一侧填充，末端显示方向 + 数值
+// 配平时整条绿色；不配平时从中心向升力更大的一侧黄色填充，末端显示方向 + 数值
+
+const BAR_GREEN = '#1fe0b0';
+const BAR_YELLOW = '#f0a832';
 
 function LiftBar({
   net,
   vertical,
   length,
-  color,
 }: {
   net: number;
   vertical: boolean;
   length: number;
-  color: string;
 }) {
+  const balanced = net === 0;
   const p = Math.min(1, Math.abs(net) / 8);
   const half = length / 2;
   const fillLen = p * (half - 6);
@@ -70,20 +73,23 @@ function LiftBar({
       style={{
         width: vertical ? bar : length,
         height: vertical ? length : bar,
-        background: '#1a1e15',
-        border: '1px solid #2c3324',
+        background: balanced ? BAR_GREEN : '#1a1e15',
+        border: `1px solid ${balanced ? BAR_GREEN : '#2c3324'}`,
+        boxShadow: balanced ? `0 0 10px ${BAR_GREEN}66` : undefined,
       }}
     >
       {/* 中心刻度 */}
-      <div
-        className="absolute"
-        style={
-          vertical
-            ? { left: -2, right: -2, top: half - 1, height: 2, background: '#4a5440' }
-            : { top: -2, bottom: -2, left: half - 1, width: 2, background: '#4a5440' }
-        }
-      />
-      {net !== 0 && (
+      {!balanced && (
+        <div
+          className="absolute"
+          style={
+            vertical
+              ? { left: -2, right: -2, top: half - 1, height: 2, background: '#4a5440' }
+              : { top: -2, bottom: -2, left: half - 1, width: 2, background: '#4a5440' }
+          }
+        />
+      )}
+      {!balanced && (
         <>
           <div
             className="absolute"
@@ -101,14 +107,14 @@ function LiftBar({
                     left: towardStart ? half - fillLen : half,
                     width: fillLen,
                   }),
-              background: `linear-gradient(${vertical ? (towardStart ? 'to top' : 'to bottom') : towardStart ? 'to left' : 'to right'}, ${color}, ${color}66)`,
-              boxShadow: `0 0 8px ${color}88`,
+              background: `linear-gradient(${vertical ? (towardStart ? 'to top' : 'to bottom') : towardStart ? 'to left' : 'to right'}, ${BAR_YELLOW}, ${BAR_YELLOW}66)`,
+              boxShadow: `0 0 8px ${BAR_YELLOW}88`,
             }}
           />
           <div
             className="absolute font-bold whitespace-nowrap"
             style={{
-              color,
+              color: BAR_YELLOW,
               fontSize: 13,
               ...(vertical
                 ? {
@@ -126,6 +132,68 @@ function LiftBar({
         </>
       )}
     </div>
+  );
+}
+
+// ---------------- 网格内的不平衡提示 ----------------
+// 只画两条交界线（中心格 ↔ 3x3、3x3 ↔ 5x5）：
+// 偏向一个角时该角点不透明度最大，向相邻两角渐变为 0；
+// 偏向一边时靠近该边的两个角点最大，向相反角渐变为 0
+
+function ImbalanceGlow({ net }: { net: { x: number; y: number } }) {
+  if (net.x === 0 && net.y === 0) return null;
+  const dx = Math.sign(net.x);
+  const dy = Math.sign(net.y);
+  // 角点不透明度权重：sx/sy ∈ {-1, 1}
+  const corner = (sx: number, sy: number) => {
+    if (dx !== 0 && dy !== 0) return sx === dx && sy === dy ? 1 : 0;
+    if (dx !== 0) return sx === dx ? 1 : 0;
+    return sy === dy ? 1 : 0;
+  };
+  const intensity = Math.min(0.9, 0.12 * (Math.abs(net.x) + Math.abs(net.y)));
+  // 两条交界线（正方形）：中心格、3x3 范围
+  const squares = [
+    { o: 2 * STEP, s: CELL },
+    { o: STEP, s: 3 * CELL + 2 * GAP },
+  ];
+  const defs: React.ReactNode[] = [];
+  const lines: React.ReactNode[] = [];
+  squares.forEach(({ o, s }, si) => {
+    // 四角：(-1,-1) 左上 → (1,-1) 右上 → (1,1) 右下 → (-1,1) 左下
+    const corners = [
+      { sx: -1, sy: -1, px: o, py: o },
+      { sx: 1, sy: -1, px: o + s, py: o },
+      { sx: 1, sy: 1, px: o + s, py: o + s },
+      { sx: -1, sy: 1, px: o, py: o + s },
+    ];
+    for (let e = 0; e < 4; e++) {
+      const a = corners[e];
+      const b = corners[(e + 1) % 4];
+      const a1 = corner(a.sx, a.sy) * intensity;
+      const a2 = corner(b.sx, b.sy) * intensity;
+      if (a1 === 0 && a2 === 0) continue;
+      const gid = `glow${si}${e}`;
+      defs.push(
+        <linearGradient key={gid} id={gid} gradientUnits="userSpaceOnUse" x1={a.px} y1={a.py} x2={b.px} y2={b.py}>
+          <stop offset="0" stopColor="#f0c020" stopOpacity={a1} />
+          <stop offset="1" stopColor="#f0c020" stopOpacity={a2} />
+        </linearGradient>,
+      );
+      lines.push(
+        <line key={gid} x1={a.px} y1={a.py} x2={b.px} y2={b.py} stroke={`url(#${gid})`} strokeWidth={4} strokeLinecap="round" />,
+      );
+    }
+  });
+  return (
+    <svg
+      className="pointer-events-none absolute inset-0"
+      width={BOARD}
+      height={BOARD}
+      style={{ zIndex: 5, filter: 'drop-shadow(0 0 6px rgba(240,192,32,0.55))' }}
+    >
+      <defs>{defs}</defs>
+      {lines}
+    </svg>
   );
 }
 
@@ -216,49 +284,6 @@ export function BalloonGame({
   const tiltX = Math.max(-20, Math.min(20, net.y * 3.2));
   const tiltY = Math.max(-20, Math.min(20, -net.x * 3.2));
 
-  // 区域交接处的升力提醒辉光（颜色 + 渐变透明），只在升力大的一侧显示
-  const glowAlpha = (n: number) => Math.min(0.75, 0.12 * Math.abs(n));
-  const glowStrips: React.CSSProperties[] = [];
-  const GLOW = '240,192,32';
-  if (net.x !== 0) {
-    const a = glowAlpha(net.x);
-    const right = net.x > 0;
-    // 中圈 3x3 边界
-    glowStrips.push({
-      left: right ? 3 * STEP + CELL : STEP - CELL * 0.75,
-      top: STEP,
-      width: CELL * 0.75,
-      height: 3 * CELL + 2 * GAP,
-      background: `linear-gradient(to ${right ? 'right' : 'left'}, rgba(${GLOW},${a}), transparent)`,
-    });
-    // 中心格边界
-    glowStrips.push({
-      left: right ? 2 * STEP + CELL : 2 * STEP - CELL * 0.6,
-      top: 2 * STEP,
-      width: CELL * 0.6,
-      height: CELL,
-      background: `linear-gradient(to ${right ? 'right' : 'left'}, rgba(${GLOW},${a}), transparent)`,
-    });
-  }
-  if (net.y !== 0) {
-    const a = glowAlpha(net.y);
-    const down = net.y > 0;
-    glowStrips.push({
-      top: down ? 3 * STEP + CELL : STEP - CELL * 0.75,
-      left: STEP,
-      height: CELL * 0.75,
-      width: 3 * CELL + 2 * GAP,
-      background: `linear-gradient(to ${down ? 'bottom' : 'top'}, rgba(${GLOW},${a}), transparent)`,
-    });
-    glowStrips.push({
-      top: down ? 2 * STEP + CELL : 2 * STEP - CELL * 0.6,
-      left: 2 * STEP,
-      height: CELL * 0.6,
-      width: CELL,
-      background: `linear-gradient(to ${down ? 'bottom' : 'top'}, rgba(${GLOW},${a}), transparent)`,
-    });
-  }
-
   const BAR_DIST = 44; // 指示条与网格的间距
 
   return (
@@ -301,11 +326,11 @@ export function BalloonGame({
 
           {/* 左侧升力条（上下） */}
           <div className="absolute" style={{ left: 0, top: 64 }}>
-            <LiftBar net={net.y} vertical length={BOARD} color="#1fe0b0" />
+            <LiftBar net={net.y} vertical length={BOARD} />
           </div>
           {/* 下侧升力条（左右） */}
           <div className="absolute" style={{ top: 64 + BOARD + BAR_DIST, left: BAR_DIST + 24 }}>
-            <LiftBar net={net.x} vertical={false} length={BOARD} color="#f0a832" />
+            <LiftBar net={net.x} vertical={false} length={BOARD} />
           </div>
           {/* 升力倍率提示（平衡提示条下方） */}
           <div className="absolute space-y-1 text-xs text-neutral-500" style={{ top: 64 + BOARD + BAR_DIST + 44, left: BAR_DIST + 24 }}>
@@ -381,10 +406,8 @@ export function BalloonGame({
                   }}
                 />
               )}
-              {/* 区域交接辉光 */}
-              {glowStrips.map((s, i) => (
-                <div key={i} className="pointer-events-none absolute" style={s} />
-              ))}
+              {/* 网格内的不平衡提示（两条交界线渐变） */}
+              <ImbalanceGlow net={net} />
             </div>
           </div>
         </div>
@@ -469,9 +492,21 @@ export function BalloonGame({
 
 export default function BalloonPage() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [level, setLevel] = useState<BalloonLevel | null>(
     () => (location.state as { level?: BalloonLevel } | null)?.level ?? null,
   );
+  const [codeInput, setCodeInput] = useState('');
+  const [codeError, setCodeError] = useState('');
+
+  const startWithCode = () => {
+    try {
+      setLevel(decodeBalloonLevel(codeInput));
+      setCodeError('');
+    } catch (e) {
+      setCodeError((e as Error).message);
+    }
+  };
 
   if (level) {
     return (
@@ -496,6 +531,31 @@ export default function BalloonPage() {
         </div>
 
         <section className="mb-10">
+          <h3 className="mb-4 text-sm tracking-[0.25em] text-neutral-500">游玩分享关卡</h3>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <input
+              value={codeInput}
+              onChange={(e) => setCodeInput(e.target.value)}
+              placeholder="粘贴分享码（EBL1_ 开头）"
+              className="flex-1 border border-neutral-800 bg-[#14170f] px-4 py-3 text-base text-neutral-200 outline-none placeholder:text-neutral-600 focus:border-[#a6e22e]/50"
+            />
+            <button
+              onClick={startWithCode}
+              className="border border-[#a6e22e]/60 bg-[#a6e22e]/10 px-7 py-3 text-base text-[#a6e22e] hover:bg-[#a6e22e]/20"
+            >
+              开始
+            </button>
+            <button
+              onClick={() => navigate('/balloon/editor')}
+              className="border border-neutral-700 px-7 py-3 text-base text-neutral-300 hover:border-neutral-500"
+            >
+              ✚ 创建关卡
+            </button>
+          </div>
+          {codeError && <div className="mt-2 text-sm text-red-400">{codeError}</div>}
+        </section>
+
+        <section className="mb-10">
           <h3 className="mb-4 text-sm tracking-[0.25em] text-neutral-500">内置关卡</h3>
           <div className="grid gap-3 sm:grid-cols-3">
             {BUILTIN_LEVELS.map((lv, i) => (
@@ -511,16 +571,6 @@ export default function BalloonPage() {
               </button>
             ))}
           </div>
-        </section>
-
-        <section>
-          <h3 className="mb-4 text-sm tracking-[0.25em] text-neutral-500">自己动手</h3>
-          <Link
-            to="/balloon/editor"
-            className="inline-block border border-dashed border-neutral-700 px-7 py-4 text-base text-neutral-400 hover:border-[#a6e22e]/50 hover:text-[#d6f28a]"
-          >
-            ✚ 制作我的关卡
-          </Link>
         </section>
       </div>
     </div>

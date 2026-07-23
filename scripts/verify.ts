@@ -7,6 +7,7 @@ import { BUILTIN_LEVELS } from '../src/games/puzzle/levels';
 import { PRESET_SHAPES } from '../src/games/puzzle/presetShapes';
 import { solvable } from '../src/games/puzzle/solver';
 import { BUILTIN_LEVELS as BALLOON_LEVELS } from '../src/games/balloon/levels';
+import { decodeBalloonLevel, encodeBalloonLevel } from '../src/games/balloon/shareCode';
 import {
   cellKey as bCellKey,
   netLift,
@@ -126,8 +127,11 @@ for (const lv of BALLOON_LEVELS) {
     (e) => !e.includes('已放置') && !e.includes('升力不平衡'),
   );
   const ok = balloonSolvable(lv);
-  console.log(`气球「${lv.name}」: ${structural.length ? 'INVALID ' + structural.join(',') : 'valid'} solvable=${ok}`);
-  if (structural.length || !ok) fail++;
+  const code = encodeBalloonLevel(lv);
+  const back = decodeBalloonLevel(code);
+  const roundtrip = canonical(back) === canonical(lv);
+  console.log(`气球「${lv.name}」: ${structural.length ? 'INVALID ' + structural.join(',') : 'valid'} solvable=${ok} 分享码往返=${roundtrip ? 'OK' : 'MISMATCH'}`);
+  if (structural.length || !ok || !roundtrip) fail++;
 }
 
 console.log(fail === 0 ? '\n全部通过 ✓' : `\n失败 ${fail} 项 ✗`);

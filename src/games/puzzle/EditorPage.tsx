@@ -59,7 +59,6 @@ export default function EditorPage() {
 
   const [tool, setTool] = useState<Tool>('place');
   const [color, setColor] = useState<PieceColor>('green');
-  const [shapeId, setShapeId] = useState(PRESET_SHAPES[5].id); // 默认 T 形
   const [customShapes, setCustomShapes] = useState<Shape[]>([]);
   const [customCells, setCustomCells] = useState<Set<string>>(new Set());
 
@@ -73,7 +72,6 @@ export default function EditorPage() {
   const [copied, setCopied] = useState(false);
 
   const allShapes = useMemo(() => [...PRESET_SHAPES, ...customShapes], [customShapes]);
-  const currentShape = allShapes.find((s) => s.id === shapeId) ?? allShapes[0];
 
   // 由棋盘上的解生成关卡（未锁定的拼图交给玩家拖动）
   const level: Level = useMemo(() => {
@@ -94,8 +92,6 @@ export default function EditorPage() {
 
   const errors = validateLevel(level);
   const usedColors = new Set(pieces.map((p) => p.color));
-  const pieceCellsTotal = pieces.reduce((s, p) => s + p.cells.length, 0);
-  const fillable = rows * cols - blocked.size;
 
   const clampSize = (v: number) => Math.max(MIN_GRID, Math.min(MAX_GRID, v));
 
@@ -242,19 +238,14 @@ export default function EditorPage() {
         const idx = occupancy.get(k)!;
         setPieces((ps) => ps.map((p, i) => (i === idx ? { ...p, locked: !p.locked } : p)));
       }
-    } else if (tool === 'place') {
-      if (occupancy.has(k)) return; // 已有拼图：按住拖动即可移动
-      if (usedColors.size >= 2 && !usedColors.has(color)) return;
-      const cells = normalizeCells(currentShape.cells);
-      for (const [cx, cy] of cells) {
-        const gx = x + cx;
-        const gy = y + cy;
-        const gk = cellKey(gx, gy);
-        if (gx < 0 || gy < 0 || gx >= cols || gy >= rows) return;
-        if (blocked.has(gk) || occupancy.has(gk)) return;
-      }
-      setPieces((ps) => [...ps, { cells, color, x, y, locked: false }]);
     }
+    // place 工具只支持拖拽放置（右键删除），点击空格不做事
+  };
+
+  // 右键棋盘上的拼图：直接删除
+  const onCellContextMenu = (x: number, y: number) => {
+    const idx = occupancy.get(cellKey(x, y));
+    if (idx !== undefined) setPieces((ps) => ps.filter((_, i) => i !== idx));
   };
 
   const customCellsList = useMemo(
@@ -269,7 +260,6 @@ export default function EditorPage() {
     const cells = normalizeCells(customCellsList);
     const id = `custom-${Date.now()}`;
     setCustomShapes((cs) => [...cs, { id, name: `自定义 ${cs.length + 1}`, cells }]);
-    setShapeId(id);
     setCustomCells(new Set());
   };
 
@@ -307,9 +297,6 @@ export default function EditorPage() {
           <div>
             <div className="text-xs tracking-[0.3em] text-neutral-500">// 关卡编辑器</div>
             <h1 className="mt-2 text-2xl font-medium text-neutral-100">制作我的关卡</h1>
-            <p className="mt-2 text-sm text-neutral-500">
-              从形状库拖入拼图（按 R 旋转），摆出的就是关卡的「解」——可以留空格；用「切换锁定」把部分拼图设为预放置，其余交给玩家拖动。
-            </p>
           </div>
           <button onClick={() => navigate('/puzzle')} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500">
             ✕ 返回
@@ -334,7 +321,7 @@ export default function EditorPage() {
               )}
             </div>
             <div className="mb-4 text-xs text-neutral-600">
-              {tool === 'place' && '从右侧形状库把拼图拖进棋盘（按 R 旋转）；拖动棋盘上的拼图可移动，拖出网格即移除；也可以直接点击空格快速放置'}
+              {tool === 'place' && '从右侧形状库将拼图拖入棋盘（R 键旋转），右键删除棋盘上的拼图'}
               {tool === 'lock' && '点击已放置的拼图，在「预放置锁定」与「玩家可拖动」之间切换'}
               {tool === 'block' && '点击空格切换禁用状态'}
               {tool === 'erase' && '点击拼图或禁用格将其移除'}
@@ -356,6 +343,10 @@ export default function EditorPage() {
                     <div
                       key={k}
                       onClick={() => onCellClick(x, y)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        onCellContextMenu(x, y);
+                      }}
                       onPointerDown={(e) => {
                         if (tool === 'place' && piece && pieceIdx !== undefined) {
                           e.preventDefault();
@@ -405,10 +396,6 @@ export default function EditorPage() {
                   }}
                 />
               ))}
-            </div>
-
-            <div className="mt-4 text-sm text-neutral-500">
-              可放置格 {fillable} · 拼图格 {pieceCellsTotal} · 空格 {Math.max(0, fillable - pieceCellsTotal)}
             </div>
           </div>
 
@@ -467,38 +454,29 @@ export default function EditorPage() {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-xs tracking-widest text-neutral-500">
-                形状库（按住拖入棋盘，或点击选中后在棋盘点击放置）
-              </label>
+              <label className="mb-1.5 block text-xs tracking-widest text-neutral-500">形状库</label>
               <div className="grid max-h-52 grid-cols-4 gap-2 overflow-y-auto border border-neutral-800 bg-[#14170f] p-3">
                 {allShapes.map((s) => (
                   <button
                     key={s.id}
-                    onClick={() => setShapeId(s.id)}
                     onPointerDown={(e) => {
                       if (usedColors.size >= 2 && !usedColors.has(color)) return;
                       e.preventDefault();
-                      setShapeId(s.id);
                       startDrag('new', -1, normalizeCells(s.cells), color, e.clientX, e.clientY);
                     }}
                     title={s.name}
-                    className={`flex aspect-square items-center justify-center border ${
-                      shapeId === s.id ? 'border-[#a6e22e]/70 bg-[#a6e22e]/10' : 'border-neutral-800 hover:border-neutral-600'
-                    } cursor-grab`}
+                    className="flex aspect-square cursor-grab items-center justify-center border border-neutral-800 hover:border-neutral-600"
                     style={{ touchAction: 'none' }}
                   >
                     <ShapeSvg cells={s.cells} color={color} cell={10} />
                   </button>
                 ))}
               </div>
-              <div className="mt-1.5 text-xs text-neutral-600">当前：{currentShape.name}</div>
             </div>
 
             {/* 已添加拼图列表 */}
             <div>
-              <label className="mb-1.5 block text-xs tracking-widest text-neutral-500">
-                拼图清单（{pieces.length} · {pieces.filter((p) => p.locked).length} 块锁定）
-              </label>
+              <label className="mb-1.5 block text-xs tracking-widest text-neutral-500">拼图清单</label>
               <div className="max-h-44 space-y-1.5 overflow-y-auto">
                 {pieces.map((p, i) => (
                   <div key={i} className="flex items-center justify-between border border-neutral-800 bg-[#14170f] px-3 py-2">
@@ -531,7 +509,7 @@ export default function EditorPage() {
 
             {/* 自定义形状 */}
             <div>
-              <label className="mb-1.5 block text-xs tracking-widest text-neutral-500">自定义形状（点击画格子）</label>
+              <label className="mb-1.5 block text-xs tracking-widest text-neutral-500">自定义形状</label>
               <div className="flex items-start gap-3">
                 <div className="inline-block border border-neutral-800 bg-[#14170f] p-1.5">
                   {Array.from({ length: 5 }, (_, y) => (

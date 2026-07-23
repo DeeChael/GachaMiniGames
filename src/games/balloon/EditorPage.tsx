@@ -13,10 +13,10 @@ import {
   GRID,
   cellKey,
   cellShade,
-  netLift,
   validateBalloonLevel,
 } from './types';
 import { BalloonIcon } from './BalloonPage';
+import { encodeBalloonLevel } from './shareCode';
 import { useBalloonDrag } from './useBalloonDrag';
 
 type Tool = 'place' | 'toggle';
@@ -35,6 +35,8 @@ export default function BalloonEditorPage() {
   const [placed, setPlaced] = useState<Record<string, BalloonValue>>({});
   const [tool, setTool] = useState<Tool>('place');
   const boardRef = useRef<HTMLDivElement>(null);
+  const [shareCode, setShareCode] = useState('');
+  const [copied, setCopied] = useState(false);
 
   const placedList: Placed[] = useMemo(
     () =>
@@ -44,7 +46,6 @@ export default function BalloonEditorPage() {
       }),
     [placed],
   );
-  const net = useMemo(() => netLift(placedList), [placedList]);
 
   const level: BalloonLevel = useMemo(
     () => ({
@@ -56,7 +57,6 @@ export default function BalloonEditorPage() {
   );
 
   const errors = validateBalloonLevel(level, placedList);
-  const totalBalloons = level.balloons.length;
 
   const remaining = (v: BalloonValue) =>
     counts[v] - Object.values(placed).filter((b) => b === v).length;
@@ -73,16 +73,24 @@ export default function BalloonEditorPage() {
     },
     [placeable, placed],
   );
-  const onDrop = useCallback((value: BalloonValue, from: string | null, x: number, y: number) => {
-    const k = cellKey(x, y);
-    if (from === k) return; // 拖回原位
-    setPlaced((p) => {
-      const np = { ...p };
-      if (from) delete np[from];
-      np[k] = value;
-      return np;
-    });
-  }, []);
+  const onDrop = useCallback(
+    (value: BalloonValue, from: string | null, x: number, y: number) => {
+      const k = cellKey(x, y);
+      if (from === k) return; // 拖回原位
+      // 从库存拖出且余量不足时，放置成功后库存自动 +1
+      if (from === null) {
+        const placedV = Object.values(placed).filter((b) => b === value).length;
+        setCounts((c) => (placedV + 1 > c[value] ? { ...c, [value]: c[value] + 1 } : c));
+      }
+      setPlaced((p) => {
+        const np = { ...p };
+        if (from) delete np[from];
+        np[k] = value;
+        return np;
+      });
+    },
+    [placed],
+  );
   const onRemove = useCallback((from: string) => {
     setPlaced((p) => {
       const np = { ...p };
@@ -108,6 +116,20 @@ export default function BalloonEditorPage() {
     navigate('/balloon', { state: { level } });
   };
 
+  const generate = () => {
+    setShareCode(encodeBalloonLevel(level));
+    setCopied(false);
+  };
+
+  const copyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(shareCode);
+      setCopied(true);
+    } catch {
+      // 剪贴板不可用时让用户手动复制
+    }
+  };
+
   const toolBtn = (t: Tool, label: string) => (
     <button
       onClick={() => setTool(t)}
@@ -128,9 +150,6 @@ export default function BalloonEditorPage() {
           <div>
             <div className="text-xs tracking-[0.3em] text-neutral-500">// 浮空回收 · 关卡编辑器</div>
             <h1 className="mt-2 text-2xl font-medium text-neutral-100">制作我的关卡</h1>
-            <p className="mt-2 text-sm text-neutral-500">
-              用 stepper 添加气球，再全部摆上网格（摆出的就是关卡的解）——升力平衡才算有效关卡。
-            </p>
           </div>
           <button onClick={() => navigate('/balloon')} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500">
             ✕ 返回
@@ -145,7 +164,7 @@ export default function BalloonEditorPage() {
               {toolBtn('toggle', '▦ 切换可放置格')}
             </div>
             <div className="mb-4 text-xs text-neutral-600">
-              {tool === 'place' && '从右侧气球行把气球拖进网格放置；拖动已放置的气球可移动，拖出网格取下'}
+              {tool === 'place' && '右侧气球行把气球拖进网格放置'}
               {tool === 'toggle' && '点击格子切换是否允许放置气球（有气球占用的格子需先移除气球）'}
             </div>
 
@@ -208,9 +227,6 @@ export default function BalloonEditorPage() {
               )}
             </div>
 
-            <div className="mt-4 text-sm text-neutral-500">
-              可放置格 {placeable.size} · 气球 {placedList.length}/{totalBalloons} · 净升力 {net.x === 0 && net.y === 0 ? '平衡 ✓' : `左右 ${net.x > 0 ? '+' : ''}${net.x} · 上下 ${net.y > 0 ? '+' : ''}${net.y}`}
-            </div>
           </div>
 
           {/* 右：配置 */}
@@ -226,21 +242,19 @@ export default function BalloonEditorPage() {
 
             {/* 气球 stepper */}
             <div>
-              <label className="mb-1.5 block text-xs tracking-widest text-neutral-500">
-                气球库存（stepper 加减数量，按住行拖入网格放置）
-              </label>
+              <label className="mb-1.5 block text-xs tracking-widest text-neutral-500">气球库存</label>
               <div className="space-y-2">
                 {[...BALLOON_VALUES].reverse().map((v) => (
                   <div
                     key={v}
                     onPointerDown={(e) => {
-                      if (tool === 'place' && remaining(v) > 0) {
+                      if (tool === 'place') {
                         e.preventDefault();
                         startDrag(v, null, e.clientX, e.clientY);
                       }
                     }}
                     className={`flex w-full items-center gap-3 border border-neutral-800 px-3 py-2.5 transition-colors ${
-                      remaining(v) > 0 && tool === 'place' ? 'cursor-grab hover:border-neutral-600' : ''
+                      tool === 'place' ? 'cursor-grab hover:border-neutral-600' : ''
                     }`}
                     style={{ touchAction: 'none' }}
                   >
@@ -277,7 +291,7 @@ export default function BalloonEditorPage() {
               </div>
             </div>
 
-            {/* 校验 + 试玩 */}
+            {/* 校验 + 生成 */}
             <div className="border-t border-neutral-800 pt-5">
               {errors.length > 0 ? (
                 <ul className="mb-3 space-y-1">
@@ -288,13 +302,39 @@ export default function BalloonEditorPage() {
               ) : (
                 <div className="mb-3 text-xs text-[#a6e22e]">✓ 关卡合法：气球全部放置且升力平衡</div>
               )}
-              <button
-                onClick={play}
-                disabled={errors.length > 0}
-                className="w-full border border-[#a6e22e]/60 bg-[#a6e22e]/10 px-4 py-3 text-base text-[#a6e22e] hover:bg-[#a6e22e]/20 disabled:cursor-not-allowed disabled:opacity-30"
-              >
-                立即试玩 →
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={generate}
+                  disabled={errors.length > 0}
+                  className="flex-1 border border-[#a6e22e]/60 bg-[#a6e22e]/10 px-4 py-3 text-base text-[#a6e22e] hover:bg-[#a6e22e]/20 disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  生成分享码
+                </button>
+                <button
+                  onClick={play}
+                  disabled={errors.length > 0}
+                  className="flex-1 border border-neutral-700 px-4 py-3 text-base text-neutral-300 hover:border-neutral-500 disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  立即试玩 →
+                </button>
+              </div>
+              {shareCode && (
+                <div className="mt-4">
+                  <textarea
+                    readOnly
+                    value={shareCode}
+                    rows={3}
+                    onFocus={(e) => e.target.select()}
+                    className="w-full resize-none border border-neutral-800 bg-[#14170f] p-3 font-mono text-xs break-all text-neutral-400 outline-none"
+                  />
+                  <button
+                    onClick={copyCode}
+                    className="mt-2 w-full border border-neutral-700 px-4 py-2.5 text-sm text-neutral-300 hover:border-neutral-500"
+                  >
+                    {copied ? '✓ 已复制' : '复制分享码'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

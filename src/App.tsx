@@ -17,7 +17,7 @@ const NAV_MENU: NavGame[] = [
     game: '明日方舟：终末地',
     logo: '/logos/endfield.png',
     items: [
-      { name: '拼图', path: '/puzzle' },
+      { name: '电路修复', path: '/puzzle' },
       { name: '浮空回收', path: '/balloon' },
     ],
   },

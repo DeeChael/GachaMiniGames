@@ -4,7 +4,7 @@
 // ============================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import type { Cell, ColorCount, Level, PieceColor } from './types';
 import {
   ALL_COLORS,
@@ -585,6 +585,7 @@ export function PuzzleGame({ level, onExit, onRestart }: { level: Level; onExit:
 
 export default function PuzzlePage() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [level, setLevel] = useState<Level | null>(null);
   const [codeInput, setCodeInput] = useState('');
   const [codeError, setCodeError] = useState('');
@@ -630,29 +631,35 @@ export default function PuzzlePage() {
       <div className="mx-auto max-w-4xl">
         <div className="mb-10">
           <div className="text-xs tracking-[0.3em] text-neutral-500">// 明日方舟：终末地</div>
-          <h1 className="mt-2 text-3xl font-medium text-neutral-100">拼图 · 源石电路模块</h1>
+          <h1 className="mt-2 text-3xl font-medium text-neutral-100">电路修复 · 源石电路模块</h1>
           <p className="mt-3 text-base text-neutral-500">
             拖拽元件填满网格，让每行每列的颜色数量与指示完全一致，修复源石电路。
           </p>
         </div>
 
         <section className="mb-10">
-          <h3 className="mb-4 text-sm tracking-[0.25em] text-neutral-500">内置关卡</h3>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {BUILTIN_LEVELS.map((lv, i) => (
-              <button
-                key={i}
-                onClick={() => setLevel(lv)}
-                className="border border-neutral-800 bg-[#14170f] px-5 py-5 text-left hover:border-[#a6e22e]/50"
-              >
-                <div className="text-base text-neutral-200">{lv.name}</div>
-                <div className="mt-2 text-xs text-neutral-600">
-                  {lv.cols}×{lv.rows} · {lv.pieces.length} 块
-                  {lv.blocked.length > 0 && ` · ${lv.blocked.length} 禁用格`}
-                </div>
-              </button>
-            ))}
+          <h3 className="mb-4 text-sm tracking-[0.25em] text-neutral-500">游玩分享关卡</h3>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <input
+              value={codeInput}
+              onChange={(e) => setCodeInput(e.target.value)}
+              placeholder="粘贴分享码（EPZ2_ 开头）"
+              className="flex-1 border border-neutral-800 bg-[#14170f] px-4 py-3 text-base text-neutral-200 outline-none placeholder:text-neutral-600 focus:border-[#a6e22e]/50"
+            />
+            <button
+              onClick={startWithCode}
+              className="border border-[#a6e22e]/60 bg-[#a6e22e]/10 px-7 py-3 text-base text-[#a6e22e] hover:bg-[#a6e22e]/20"
+            >
+              开始
+            </button>
+            <button
+              onClick={() => navigate('/puzzle/editor')}
+              className="border border-neutral-700 px-7 py-3 text-base text-neutral-300 hover:border-neutral-500"
+            >
+              ✚ 创建关卡
+            </button>
           </div>
+          {codeError && <div className="mt-2 text-sm text-red-400">{codeError}</div>}
         </section>
 
         <section className="mb-10">
@@ -671,32 +678,22 @@ export default function PuzzlePage() {
         </section>
 
         <section className="mb-10">
-          <h3 className="mb-4 text-sm tracking-[0.25em] text-neutral-500">游玩分享关卡</h3>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <input
-              value={codeInput}
-              onChange={(e) => setCodeInput(e.target.value)}
-              placeholder="粘贴分享码（EPZ2_ 开头）"
-              className="flex-1 border border-neutral-800 bg-[#14170f] px-4 py-3 text-base text-neutral-200 outline-none placeholder:text-neutral-600 focus:border-[#a6e22e]/50"
-            />
-            <button
-              onClick={startWithCode}
-              className="border border-[#a6e22e]/60 bg-[#a6e22e]/10 px-7 py-3 text-base text-[#a6e22e] hover:bg-[#a6e22e]/20"
-            >
-              开始
-            </button>
+          <h3 className="mb-4 text-sm tracking-[0.25em] text-neutral-500">内置关卡</h3>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {BUILTIN_LEVELS.map((lv, i) => (
+              <button
+                key={i}
+                onClick={() => setLevel(lv)}
+                className="border border-neutral-800 bg-[#14170f] px-5 py-5 text-left hover:border-[#a6e22e]/50"
+              >
+                <div className="text-base text-neutral-200">{lv.name}</div>
+                <div className="mt-2 text-xs text-neutral-600">
+                  {lv.cols}×{lv.rows} · {lv.pieces.length} 块
+                  {lv.blocked.length > 0 && ` · ${lv.blocked.length} 禁用格`}
+                </div>
+              </button>
+            ))}
           </div>
-          {codeError && <div className="mt-2 text-sm text-red-400">{codeError}</div>}
-        </section>
-
-        <section>
-          <h3 className="mb-4 text-sm tracking-[0.25em] text-neutral-500">自己动手</h3>
-          <Link
-            to="/puzzle/editor"
-            className="inline-block border border-dashed border-neutral-700 px-7 py-4 text-base text-neutral-400 hover:border-[#a6e22e]/50 hover:text-[#d6f28a]"
-          >
-            ✚ 制作我的关卡（生成分享码）
-          </Link>
         </section>
       </div>
     </div>

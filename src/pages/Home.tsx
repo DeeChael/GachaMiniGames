@@ -10,7 +10,7 @@ interface GameEntry {
 
 const GAMES: GameEntry[] = [
   {
-    name: '拼图',
+    name: '电路修复',
     game: '明日方舟：终末地',
     logo: '/logos/endfield.png',
     path: '/puzzle',
