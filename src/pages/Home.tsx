@@ -12,14 +12,14 @@ const GAMES: GameEntry[] = [
   {
     name: '电路修复',
     game: '明日方舟：终末地',
-    logo: '/logos/endfield.png',
+    logo: `${import.meta.env.BASE_URL}logos/endfield.png`,
     path: '/puzzle',
     ready: true,
   },
   {
     name: '浮空回收',
     game: '明日方舟：终末地',
-    logo: '/logos/endfield.png',
+    logo: `${import.meta.env.BASE_URL}logos/endfield.png`,
     path: '/balloon',
     ready: true,
   },

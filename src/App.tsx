@@ -15,7 +15,7 @@ interface NavGame {
 const NAV_MENU: NavGame[] = [
   {
     game: '明日方舟：终末地',
-    logo: '/logos/endfield.png',
+    logo: `${import.meta.env.BASE_URL}logos/endfield.png`,
     items: [
       { name: '电路修复', path: '/puzzle' },
       { name: '浮空回收', path: '/balloon' },
