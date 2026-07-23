@@ -383,7 +383,7 @@ export default function ColorfillPage() {
               >
                 <div className="text-base text-neutral-200">{lv.name}</div>
                 <div className="mt-2 text-xs text-neutral-600">
-                  {lv.cols}×{lv.rows} · {lv.steps} 步 · 目标{FILL_COLORS[lv.target].name}
+                  {lv.cols}×{lv.rows} · {lv.steps} 步
                 </div>
               </button>
             ))}
