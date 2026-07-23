@@ -37,8 +37,16 @@ export function ColorfillGame({
   const { rows, cols, target } = level;
 
   const [grid, setGrid] = useState<CellKind[][]>(() => cloneCells(level.cells));
+  // 可选颜色：目标颜色 + 初始网格中出现的颜色；两者都没出现的颜色不显示
+  const available = useMemo(
+    () =>
+      ALL_COLORS.filter(
+        (c) => c === target || level.cells.some((row) => row.some((k) => k === c)),
+      ),
+    [level, target],
+  );
   const [selected, setSelected] = useState<FillColor>(
-    () => ALL_COLORS.find((c) => c !== target) ?? 'blue',
+    () => available.find((c) => c !== target) ?? available[0],
   );
   const [stepsLeft, setStepsLeft] = useState(level.steps);
   const [status, setStatus] = useState<'playing' | 'won' | 'lost'>('playing');
@@ -59,12 +67,12 @@ export function ColorfillGame({
     setAnimating(false);
   };
 
-  // 数字键 1~4 切换颜色，R 重置
+  // 数字键切换显示中的颜色，R 重置
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       const n = Number(e.key);
-      if (n >= 1 && n <= ALL_COLORS.length) setSelected(ALL_COLORS[n - 1]);
+      if (n >= 1 && n <= available.length) setSelected(available[n - 1]);
       else if (e.key === 'r' || e.key === 'R') reset();
     };
     window.addEventListener('keydown', onKey);
@@ -180,9 +188,9 @@ export function ColorfillGame({
           </div>
         </div>
 
-        {/* 颜色选择 */}
+        {/* 颜色选择（目标颜色 + 初始网格中出现的颜色） */}
         <div className="flex flex-col gap-4 pt-12">
-          {ALL_COLORS.map((c, i) => {
+          {available.map((c, i) => {
             const col = FILL_COLORS[c];
             const active = selected === c;
             return (
