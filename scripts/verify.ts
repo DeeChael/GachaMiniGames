@@ -6,6 +6,13 @@ import { encodeLevel, decodeLevel } from '../src/games/puzzle/shareCode';
 import { BUILTIN_LEVELS } from '../src/games/puzzle/levels';
 import { PRESET_SHAPES } from '../src/games/puzzle/presetShapes';
 import { solvable } from '../src/games/puzzle/solver';
+import { BUILTIN_LEVELS as BALLOON_LEVELS } from '../src/games/balloon/levels';
+import {
+  cellKey as bCellKey,
+  netLift,
+  validateBalloonLevel,
+  type Placed as BalloonPlaced,
+} from '../src/games/balloon/types';
 
 // btoa/atob polyfill for node
 (globalThis as any).btoa = (s: string) => Buffer.from(s, 'binary').toString('base64');
@@ -88,6 +95,40 @@ const builtinCode = encodeLevel(BUILTIN_LEVELS[2]);
 const builtinBack = decodeLevel(builtinCode);
 console.log(`内置关卡3 分享码长度=${builtinCode.length} 往返=${canonical(builtinBack) === canonical(BUILTIN_LEVELS[2]) ? 'OK' : 'MISMATCH'}`);
 if (canonical(builtinBack) !== canonical(BUILTIN_LEVELS[2])) fail++;
+
+// 4. 气球内置关卡：结构合法 + 暴力搜索存在升力平衡的放法
+function balloonSolvable(level: (typeof BALLOON_LEVELS)[number]): boolean {
+  const cells = level.placeable;
+  const balloons = level.balloons;
+  const chosen: BalloonPlaced[] = [];
+  const used = new Set<string>();
+  const dfs = (i: number): boolean => {
+    if (i === balloons.length) {
+      const net = netLift(chosen);
+      return net.x === 0 && net.y === 0;
+    }
+    for (const [x, y] of cells) {
+      const k = bCellKey(x, y);
+      if (used.has(k)) continue;
+      used.add(k);
+      chosen.push({ x, y, value: balloons[i] });
+      if (dfs(i + 1)) return true;
+      chosen.pop();
+      used.delete(k);
+    }
+    return false;
+  };
+  return dfs(0);
+}
+for (const lv of BALLOON_LEVELS) {
+  // 校验时假设一种合法摆放存在即可，这里先查结构错误（不依赖具体摆放）
+  const structural = validateBalloonLevel(lv, []).filter(
+    (e) => !e.includes('已放置') && !e.includes('升力不平衡'),
+  );
+  const ok = balloonSolvable(lv);
+  console.log(`气球「${lv.name}」: ${structural.length ? 'INVALID ' + structural.join(',') : 'valid'} solvable=${ok}`);
+  if (structural.length || !ok) fail++;
+}
 
 console.log(fail === 0 ? '\n全部通过 ✓' : `\n失败 ${fail} 项 ✗`);
 process.exit(fail === 0 ? 0 : 1);

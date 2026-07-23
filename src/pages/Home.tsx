@@ -16,6 +16,13 @@ const GAMES: GameEntry[] = [
     path: '/puzzle',
     ready: true,
   },
+  {
+    name: '浮空回收',
+    game: '明日方舟：终末地',
+    logo: '/logos/endfield.png',
+    path: '/balloon',
+    ready: true,
+  },
   // 后续小游戏在这里添加
 ];
 

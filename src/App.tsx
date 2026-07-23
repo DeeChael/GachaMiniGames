@@ -2,6 +2,8 @@ import { Routes, Route, Link } from 'react-router';
 import Home from './pages/Home';
 import PuzzlePage from './games/puzzle/PuzzlePage';
 import EditorPage from './games/puzzle/EditorPage';
+import BalloonPage from './games/balloon/BalloonPage';
+import BalloonEditorPage from './games/balloon/EditorPage';
 
 // 顶栏菜单：按二游分组，选项显示游戏 logo，悬停下拉显示小游戏名称
 interface NavGame {
@@ -14,7 +16,10 @@ const NAV_MENU: NavGame[] = [
   {
     game: '明日方舟：终末地',
     logo: '/logos/endfield.png',
-    items: [{ name: '拼图', path: '/puzzle' }],
+    items: [
+      { name: '拼图', path: '/puzzle' },
+      { name: '浮空回收', path: '/balloon' },
+    ],
   },
   // 后续二游在这里添加
 ];
@@ -64,6 +69,8 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/puzzle" element={<PuzzlePage />} />
         <Route path="/puzzle/editor" element={<EditorPage />} />
+        <Route path="/balloon" element={<BalloonPage />} />
+        <Route path="/balloon/editor" element={<BalloonEditorPage />} />
       </Routes>
     </div>
   );
