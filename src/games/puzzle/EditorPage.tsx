@@ -15,6 +15,7 @@ import {
   cellKey,
   centroidCell,
   computeColorReq,
+  isConnectedCells,
   normalizeCells,
   rotateCells,
   shapeBounds,
@@ -256,9 +257,16 @@ export default function EditorPage() {
     }
   };
 
+  const customCellsList = useMemo(
+    () => [...customCells].map((k) => k.split(',').map(Number) as Cell),
+    [customCells],
+  );
+  // 自定义形状要求所有方块四连通（上下左右相连）
+  const customConnected = isConnectedCells(customCellsList);
+
   const saveCustomShape = () => {
-    if (customCells.size === 0) return;
-    const cells = normalizeCells([...customCells].map((k) => k.split(',').map(Number) as Cell));
+    if (customCells.size === 0 || !customConnected) return;
+    const cells = normalizeCells(customCellsList);
     const id = `custom-${Date.now()}`;
     setCustomShapes((cs) => [...cs, { id, name: `自定义 ${cs.length + 1}`, cells }]);
     setShapeId(id);
@@ -550,13 +558,18 @@ export default function EditorPage() {
                     </div>
                   ))}
                 </div>
-                <button
-                  onClick={saveCustomShape}
-                  disabled={customCells.size === 0}
-                  className="border border-neutral-700 px-4 py-2 text-sm text-neutral-300 hover:border-neutral-500 disabled:opacity-30"
-                >
-                  保存为形状
-                </button>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={saveCustomShape}
+                    disabled={customCells.size === 0 || !customConnected}
+                    className="border border-neutral-700 px-4 py-2 text-sm text-neutral-300 hover:border-neutral-500 disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    保存为形状
+                  </button>
+                  {customCells.size > 0 && !customConnected && (
+                    <div className="max-w-36 text-xs text-amber-400/90">方块之间必须相连（上下左右相邻）才能保存</div>
+                  )}
+                </div>
               </div>
             </div>
 

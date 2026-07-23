@@ -10,11 +10,11 @@ export type PieceColor = 'green' | 'cyan' | 'orange';
 
 export const PIECE_COLORS: Record<
   PieceColor,
-  { name: string; main: string; dim: string; glow: string }
+  { name: string; main: string; light: string; dim: string; glow: string }
 > = {
-  green: { name: '荧绿', main: '#a6e22e', dim: '#3d4d14', glow: 'rgba(166,226,46,0.35)' },
-  cyan: { name: '青色', main: '#1fe0b0', dim: '#0d4a3b', glow: 'rgba(31,224,176,0.35)' },
-  orange: { name: '橙黄', main: '#f0a832', dim: '#54401a', glow: 'rgba(240,168,50,0.35)' },
+  green: { name: '荧绿', main: '#a6e22e', light: '#d6f28a', dim: '#3d4d14', glow: 'rgba(166,226,46,0.35)' },
+  cyan: { name: '青色', main: '#1fe0b0', light: '#7ff0d2', dim: '#0d4a3b', glow: 'rgba(31,224,176,0.35)' },
+  orange: { name: '橙黄', main: '#f0a832', light: '#ffd07d', dim: '#54401a', glow: 'rgba(240,168,50,0.35)' },
 };
 
 export const ALL_COLORS: PieceColor[] = ['green', 'cyan', 'orange'];
@@ -120,6 +120,25 @@ export function shapeBounds(cells: Cell[]): { w: number; h: number } {
   };
 }
 
+/** 判断一组格子是否四连通（自定义形状要求所有方块相连） */
+export function isConnectedCells(cells: Cell[]): boolean {
+  if (cells.length <= 1) return true;
+  const set = new Set(cells.map(([x, y]) => cellKey(x, y)));
+  const seen = new Set<string>([cellKey(cells[0][0], cells[0][1])]);
+  const queue: Cell[] = [cells[0]];
+  while (queue.length > 0) {
+    const [x, y] = queue.pop()!;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as Cell[]) {
+      const k = cellKey(x + dx, y + dy);
+      if (set.has(k) && !seen.has(k)) {
+        seen.add(k);
+        queue.push([x + dx, y + dy]);
+      }
+    }
+  }
+  return seen.size === cells.length;
+}
+
 /** 找到最靠近形状重心的格子（用于锁定图标的显示位置） */
 export function centroidCell(cells: Cell[]): Cell {
   const cx = cells.reduce((s, c) => s + c[0], 0) / cells.length;
@@ -172,6 +191,9 @@ export function validateLevel(level: Level): string[] {
   }
   if (colors.size > 2) errors.push('一个关卡最多使用 2 种颜色');
   if (pieces.length === 0) errors.push('至少需要一块拼图');
+  if (pieces.length > 0 && pieces.every((p) => p.locked)) {
+    errors.push('至少需要一块玩家可拖动的拼图（不能全部是预放置锁定）');
+  }
   const fillable = rows * cols - blocked.length;
   if (pieceCells > fillable) {
     errors.push(`拼图总格子数（${pieceCells}）超过了可放置格子数（${fillable}）`);

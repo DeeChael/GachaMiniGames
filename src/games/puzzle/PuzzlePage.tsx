@@ -461,10 +461,26 @@ export function PuzzleGame({ level, onExit, onRestart }: { level: Level; onExit:
                 const gy = pl.y + cy;
                 const borders: React.CSSProperties = {};
                 const bw = 3;
-                if (!set.has(cellKey(cx, cy - 1))) borders.borderTop = `${bw}px solid ${c.main}`;
-                if (!set.has(cellKey(cx, cy + 1))) borders.borderBottom = `${bw}px solid ${c.main}`;
-                if (!set.has(cellKey(cx - 1, cy))) borders.borderLeft = `${bw}px solid ${c.main}`;
-                if (!set.has(cellKey(cx + 1, cy))) borders.borderRight = `${bw}px solid ${c.main}`;
+                // 内描边：沿形状外轮廓在格子内侧描一圈，用比本体高亮的颜色
+                const inner: string[] = [];
+                const iw = 2;
+                if (!set.has(cellKey(cx, cy - 1))) {
+                  borders.borderTop = `${bw}px solid ${c.main}`;
+                  inner.push(`inset 0 ${iw}px 0 0 ${c.light}`);
+                }
+                if (!set.has(cellKey(cx, cy + 1))) {
+                  borders.borderBottom = `${bw}px solid ${c.main}`;
+                  inner.push(`inset 0 -${iw}px 0 0 ${c.light}`);
+                }
+                if (!set.has(cellKey(cx - 1, cy))) {
+                  borders.borderLeft = `${bw}px solid ${c.main}`;
+                  inner.push(`inset ${iw}px 0 0 0 ${c.light}`);
+                }
+                if (!set.has(cellKey(cx + 1, cy))) {
+                  borders.borderRight = `${bw}px solid ${c.main}`;
+                  inner.push(`inset -${iw}px 0 0 0 ${c.light}`);
+                }
+                if (!p.locked) inner.push(`inset 0 0 ${cellSize / 3}px rgba(255,255,255,0.18)`);
                 return (
                   <div
                     key={`${p.id}-${cx}-${cy}`}
@@ -480,7 +496,7 @@ export function PuzzleGame({ level, onExit, onRestart }: { level: Level; onExit:
                       cursor: p.locked ? 'not-allowed' : 'grab',
                       touchAction: 'none',
                       zIndex: 4,
-                      boxShadow: p.locked ? 'none' : `inset 0 0 ${cellSize / 3}px rgba(255,255,255,0.18)`,
+                      boxShadow: inner.join(', '),
                       ...borders,
                     }}
                   >
