@@ -28,8 +28,8 @@ export type CellKind = FillColor | 'blocked' | null;
 /** 关卡定义 */
 export interface FillLevel {
   name: string;
-  rows: number; // 3 - 10
-  cols: number; // 3 - 12
+  rows: number; // 4 - 16
+  cols: number; // 4 - 20
   /** 目标颜色：所有可填色区域都要变成它 */
   target: FillColor;
   /** 步数限制 */
@@ -38,10 +38,10 @@ export interface FillLevel {
   cells: CellKind[][];
 }
 
-export const MIN_GRID = 3;
-export const MAX_COLS = 12;
-export const MAX_ROWS = 10;
-export const MIN_STEPS = 1;
+export const MIN_GRID = 4;
+export const MAX_COLS = 20;
+export const MAX_ROWS = 16;
+export const MIN_STEPS = 2;
 export const MAX_STEPS = 20;
 
 export const cellKey = (x: number, y: number) => `${x},${y}`;
@@ -150,7 +150,7 @@ export function validateFillLevel(level: FillLevel): string[] {
   }
   if (fillable === 0) errors.push('至少需要一格可填色区域');
   if (uncolored > 0) errors.push(`还有 ${uncolored} 格可填色区域没有填色`);
-  if (colors.size < 3) errors.push('四种颜色中至少要有三种各存在一格');
+  if (colors.size < 2) errors.push('四种颜色中至少要有两种各存在一格');
   if (uncolored === 0 && fillable > 0 && isComplete(cells, level.target)) {
     errors.push('所有可填色区域已经是目标颜色，无需游玩');
   }

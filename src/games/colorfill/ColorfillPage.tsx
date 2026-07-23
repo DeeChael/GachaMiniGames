@@ -234,13 +234,15 @@ export function ColorfillGame({
                   ← 返回编辑器
                 </button>
               ) : (
-                <button onClick={onRestart} className="border border-neutral-600 px-5 py-2.5 text-sm text-neutral-300 hover:border-neutral-400">
-                  换一关
-                </button>
+                <>
+                  <button onClick={onRestart} className="border border-neutral-600 px-5 py-2.5 text-sm text-neutral-300 hover:border-neutral-400">
+                    换一关
+                  </button>
+                  <button onClick={onExit} className="border border-neutral-600 px-5 py-2.5 text-sm text-neutral-300 hover:border-neutral-400">
+                    返回菜单
+                  </button>
+                </>
               )}
-              <button onClick={onExit} className="border border-neutral-600 px-5 py-2.5 text-sm text-neutral-300 hover:border-neutral-400">
-                返回菜单
-              </button>
             </div>
           </div>
         </div>
@@ -268,11 +270,11 @@ export function ColorfillGame({
                   <button onClick={onRestart} className="border border-neutral-600 px-5 py-2.5 text-sm text-neutral-300 hover:border-neutral-400">
                     换一关
                   </button>
+                  <button onClick={onExit} className="border border-neutral-600 px-5 py-2.5 text-sm text-neutral-300 hover:border-neutral-400">
+                    返回菜单
+                  </button>
                 </>
               )}
-              <button onClick={onExit} className="border border-neutral-600 px-5 py-2.5 text-sm text-neutral-300 hover:border-neutral-400">
-                返回菜单
-              </button>
             </div>
           </div>
         </div>
