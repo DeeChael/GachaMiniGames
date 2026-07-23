@@ -4,7 +4,7 @@
 // ============================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import type { BalloonLevel, BalloonValue, Placed } from './types';
 import {
   BALLOON_INFO,
@@ -511,11 +511,23 @@ export function BalloonGame({
 export default function BalloonPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [level, setLevel] = useState<BalloonLevel | null>(
-    () => (location.state as { level?: BalloonLevel } | null)?.level ?? null,
-  );
+  const [searchParams] = useSearchParams();
+  // 初始关卡：编辑器试玩（state）或分享码链接（?code=）
+  const initial = useMemo(() => {
+    const fromState = (location.state as { level?: BalloonLevel } | null)?.level;
+    if (fromState) return { level: fromState, error: '' };
+    const code = searchParams.get('code');
+    if (!code) return { level: null as BalloonLevel | null, error: '' };
+    try {
+      return { level: decodeBalloonLevel(code), error: '' };
+    } catch (e) {
+      return { level: null as BalloonLevel | null, error: (e as Error).message };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const [level, setLevel] = useState<BalloonLevel | null>(initial.level);
   const [codeInput, setCodeInput] = useState('');
-  const [codeError, setCodeError] = useState('');
+  const [codeError, setCodeError] = useState(initial.error);
 
   const startWithCode = () => {
     try {

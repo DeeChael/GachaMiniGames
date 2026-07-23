@@ -1,4 +1,7 @@
-import { Link } from 'react-router';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router';
+import { decodeLevel } from '../games/puzzle/shareCode';
+import { decodeBalloonLevel } from '../games/balloon/shareCode';
 
 interface GameEntry {
   name: string;
@@ -27,6 +30,38 @@ const GAMES: GameEntry[] = [
 ];
 
 export default function Home() {
+  const navigate = useNavigate();
+  const [code, setCode] = useState('');
+  const [codeError, setCodeError] = useState('');
+
+  // 检测分享码属于哪个游戏并跳转
+  const startWithCode = () => {
+    const v = code.trim();
+    if (!v) {
+      setCodeError('');
+      return;
+    }
+    if (v.startsWith('EPZ2_')) {
+      try {
+        decodeLevel(v);
+        navigate(`/puzzle?code=${encodeURIComponent(v)}`);
+      } catch (e) {
+        setCodeError((e as Error).message);
+      }
+      return;
+    }
+    if (v.startsWith('EBL1_')) {
+      try {
+        decodeBalloonLevel(v);
+        navigate(`/balloon?code=${encodeURIComponent(v)}`);
+      } catch (e) {
+        setCodeError((e as Error).message);
+      }
+      return;
+    }
+    setCodeError('无法识别的分享码（支持 EPZ2_ / EBL1_ 开头）');
+  };
+
   return (
     <div className="mx-auto max-w-4xl px-6 py-16">
       <header className="mb-12">
@@ -35,6 +70,30 @@ export default function Home() {
           二游小游戏合集
         </h1>
       </header>
+
+      <div className="mb-12">
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <input
+            value={code}
+            onChange={(e) => {
+              setCode(e.target.value);
+              setCodeError('');
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') startWithCode();
+            }}
+            placeholder="粘贴分享码，自动识别游戏"
+            className="flex-1 border border-neutral-800 bg-[#14170f] px-4 py-3 text-base text-neutral-200 outline-none placeholder:text-neutral-600 focus:border-[#a6e22e]/50"
+          />
+          <button
+            onClick={startWithCode}
+            className="border border-[#a6e22e]/60 bg-[#a6e22e]/10 px-7 py-3 text-base text-[#a6e22e] hover:bg-[#a6e22e]/20"
+          >
+            开始
+          </button>
+        </div>
+        {codeError && <div className="mt-2 text-sm text-red-400">{codeError}</div>}
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {GAMES.map((g) => (
