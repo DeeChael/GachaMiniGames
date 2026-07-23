@@ -164,13 +164,13 @@ export default function BalloonEditorPage() {
               {tool === 'toggle' && '点击格子切换是否允许放置气球（有气球占用的格子需先移除气球）'}
             </div>
 
-            <div className="relative inline-block" style={{ paddingLeft: 24, paddingBottom: 44 }}>
+            <div className="relative inline-block" style={{ paddingLeft: 48, paddingBottom: 48 }}>
               {/* 左侧升力条（上下） */}
               <div className="absolute" style={{ left: 0, top: 0 }}>
                 <LiftBar net={net.y} vertical length={BOARD} />
               </div>
               {/* 下侧升力条（左右） */}
-              <div className="absolute" style={{ top: BOARD + 20, left: 24 }}>
+              <div className="absolute" style={{ top: BOARD + 24, left: 48 }}>
                 <LiftBar net={net.x} vertical={false} length={BOARD} />
               </div>
 
