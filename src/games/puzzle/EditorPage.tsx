@@ -295,7 +295,7 @@ export default function EditorPage() {
       <div className="mx-auto max-w-6xl">
         <div className="mb-8 flex items-start justify-between gap-3">
           <div>
-            <div className="text-xs tracking-[0.3em] text-neutral-500">// 关卡编辑器</div>
+            <div className="text-xs tracking-[0.3em] text-neutral-500">// 电路修复 · 关卡编辑器</div>
             <h1 className="mt-2 text-2xl font-medium text-neutral-100">制作我的关卡</h1>
           </div>
           <button onClick={() => navigate('/puzzle')} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500">

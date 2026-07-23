@@ -67,14 +67,16 @@ function LiftBar({
   const towardStart = net < 0;
   const arrow = vertical ? (net < 0 ? '↑' : '↓') : net < 0 ? '←' : '→';
   const bar = 8;
+  // 配平时：整条绿色，从中间向两侧逐渐透明
+  const balancedBg = `linear-gradient(${vertical ? 'to bottom' : 'to right'}, transparent, ${BAR_GREEN}, transparent)`;
   return (
     <div
       className="relative"
       style={{
         width: vertical ? bar : length,
         height: vertical ? length : bar,
-        background: balanced ? BAR_GREEN : '#1a1e15',
-        border: `1px solid ${balanced ? BAR_GREEN : '#2c3324'}`,
+        background: balanced ? balancedBg : '#1a1e15',
+        border: `1px solid ${balanced ? `${BAR_GREEN}44` : '#2c3324'}`,
         boxShadow: balanced ? `0 0 10px ${BAR_GREEN}66` : undefined,
       }}
     >
@@ -151,10 +153,11 @@ function ImbalanceGlow({ net }: { net: { x: number; y: number } }) {
     return sy === dy ? 1 : 0;
   };
   const intensity = Math.min(0.9, 0.12 * (Math.abs(net.x) + Math.abs(net.y)));
-  // 两条交界线（正方形）：中心格、3x3 范围
+  // 两条交界线（正方形），画在缝隙中心，与格子边缘留距：
+  // 中心格 ↔ 3x3 的缝隙、3x3 ↔ 5x5 的缝隙
   const squares = [
-    { o: 2 * STEP, s: CELL },
-    { o: STEP, s: 3 * CELL + 2 * GAP },
+    { o: 2 * STEP - GAP / 2, s: CELL + GAP },
+    { o: STEP - GAP / 2, s: 3 * CELL + 3 * GAP },
   ];
   const defs: React.ReactNode[] = [];
   const lines: React.ReactNode[] = [];
@@ -524,9 +527,9 @@ export default function BalloonPage() {
       <div className="mx-auto max-w-4xl">
         <div className="mb-10">
           <div className="text-xs tracking-[0.3em] text-neutral-500">// 明日方舟：终末地</div>
-          <h1 className="mt-2 text-3xl font-medium text-neutral-100">浮空回收 · 气球</h1>
+          <h1 className="mt-2 text-3xl font-medium text-neutral-100">气球 · 浮空回收</h1>
           <p className="mt-3 text-base text-neutral-500">
-            把全部气球挂上网格并保持升力平衡——越靠外的气球升力越大，哪边升力大网格就向哪边翘起。
+            把全部气球挂上网格并保持升力平衡
           </p>
         </div>
 

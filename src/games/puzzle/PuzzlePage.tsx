@@ -132,11 +132,26 @@ function ColorBars({
         const need = req[c] ?? 0;
         const have = filled[c] ?? 0;
         const overflow = Math.max(0, have - need);
+        const litCount = Math.min(have, need);
         const col = PIECE_COLORS[c];
+        const overflowBars = Array.from({ length: overflow }, (_, i) => (
+          <div
+            key={`o${i}`}
+            style={{
+              width: vertical ? groupW : 5,
+              height: vertical ? 5 : groupW,
+              background: '#e04b3a',
+              boxShadow: '0 0 6px rgba(224,75,58,0.9)',
+            }}
+          />
+        ));
         return (
           <div key={c} className={`flex ${vertical ? 'flex-col-reverse' : 'flex-row'}`} style={{ gap: 3 }}>
+            {/* 行提示（左侧）：超出的红色条放在正常条左边 */}
+            {!vertical && overflowBars}
             {Array.from({ length: need }, (_, i) => {
-              const lit = i < Math.min(have, need);
+              // 行提示（左侧）：满足需求的格数从右往左点亮
+              const lit = vertical ? i < litCount : i >= need - litCount;
               return (
                 <div
                   key={i}
@@ -149,17 +164,7 @@ function ColorBars({
                 />
               );
             })}
-            {Array.from({ length: overflow }, (_, i) => (
-              <div
-                key={`o${i}`}
-                style={{
-                  width: vertical ? groupW : 5,
-                  height: vertical ? 5 : groupW,
-                  background: '#e04b3a',
-                  boxShadow: '0 0 6px rgba(224,75,58,0.9)',
-                }}
-              />
-            ))}
+            {vertical && overflowBars}
           </div>
         );
       })}
@@ -349,7 +354,7 @@ export function PuzzleGame({ level, onExit, onRestart }: { level: Level; onExit:
       {/* 顶部信息栏 */}
       <div className="mb-6 flex w-full max-w-6xl items-center justify-between gap-3">
         <div>
-          <div className="text-xs tracking-[0.3em] text-neutral-500">// 设备修复</div>
+          <div className="text-xs tracking-[0.3em] text-neutral-500">// 电路修复</div>
           <h2 className="mt-1 text-2xl font-medium text-neutral-100">{level.name}</h2>
         </div>
         <div className="flex items-center gap-2">
@@ -631,9 +636,9 @@ export default function PuzzlePage() {
       <div className="mx-auto max-w-4xl">
         <div className="mb-10">
           <div className="text-xs tracking-[0.3em] text-neutral-500">// 明日方舟：终末地</div>
-          <h1 className="mt-2 text-3xl font-medium text-neutral-100">电路修复 · 源石电路模块</h1>
+          <h1 className="mt-2 text-3xl font-medium text-neutral-100">拼图 · 电路修复</h1>
           <p className="mt-3 text-base text-neutral-500">
-            拖拽元件填满网格，让每行每列的颜色数量与指示完全一致，修复源石电路。
+            拖拽元件调整位置，让每行每列的元件颜色、数量与指示完全一致，修复源石电路
           </p>
         </div>
 

@@ -289,6 +289,23 @@ export default function BalloonEditorPage() {
                   </div>
                 ))}
               </div>
+              {/* 清理按钮 */}
+              <button
+                onClick={() => {
+                  setPlaced({});
+                  setCounts({ 1: 0, 2: 0, 3: 0, 6: 0 });
+                }}
+                className="mt-2 w-full border border-neutral-700 px-4 py-2.5 text-sm text-neutral-300 hover:border-neutral-500"
+              >
+                清理所有气球
+              </button>
+              <button
+                onClick={() => setPlaceable(new Set(Object.keys(placed)))}
+                disabled={placedList.length === 0}
+                className="mt-2 w-full border border-neutral-700 px-4 py-2.5 text-sm text-neutral-300 hover:border-neutral-500 disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                仅已放置气球格可放置
+              </button>
             </div>
 
             {/* 校验 + 生成 */}
