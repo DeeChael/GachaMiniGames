@@ -100,11 +100,11 @@ export default function Home() {
               if (e.key === 'Enter') startWithCode();
             }}
             placeholder="粘贴分享码，自动识别游戏"
-            className="flex-1 border border-neutral-800 bg-[#14170f] px-4 py-3 text-base text-neutral-200 outline-none placeholder:text-neutral-600 focus:border-[#a6e22e]/50"
+            className="flex-1 border border-neutral-800 bg-[#1a1c1f] px-4 py-3 text-base text-neutral-200 outline-none placeholder:text-neutral-600 focus:border-neutral-600"
           />
           <button
             onClick={startWithCode}
-            className="border border-[#a6e22e]/60 bg-[#a6e22e]/10 px-7 py-3 text-base text-[#a6e22e] hover:bg-[#a6e22e]/20"
+            className="border border-neutral-600 bg-neutral-800/60 px-7 py-3 text-base text-neutral-100 hover:border-neutral-400"
           >
             开始
           </button>
@@ -117,14 +117,14 @@ export default function Home() {
           <Link
             key={g.path}
             to={g.path}
-            className="group flex items-center justify-between gap-4 rounded-xl border border-neutral-800 bg-[#14170f] p-5 transition-colors hover:border-[#a6e22e]/50"
+            className="group flex items-center justify-between gap-4 rounded-xl border border-neutral-800 bg-[#1a1c1f] p-5 transition-colors hover:border-neutral-600"
           >
             <div className="min-w-0">
-              <div className="text-lg font-medium text-neutral-100 group-hover:text-[#d6f28a]">
+              <div className="text-lg font-medium text-neutral-100 group-hover:text-white">
                 {g.name}
               </div>
               <div className="mt-1 truncate text-xs text-neutral-500">{g.game}</div>
-              <div className="mt-3 inline-block rounded-full border border-neutral-700 px-2.5 py-0.5 text-[11px] text-neutral-500 group-hover:border-[#a6e22e]/60 group-hover:text-[#a6e22e]">
+              <div className="mt-3 inline-block rounded-full border border-neutral-700 px-2.5 py-0.5 text-[11px] text-neutral-500 group-hover:border-neutral-500 group-hover:text-neutral-300">
                 开始游玩 →
               </div>
             </div>

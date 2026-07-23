@@ -595,9 +595,7 @@ export default function BalloonPage() {
                 className="border border-neutral-800 bg-[#14170f] px-5 py-5 text-left hover:border-[#a6e22e]/50"
               >
                 <div className="text-base text-neutral-200">{lv.name}</div>
-                <div className="mt-2 text-xs text-neutral-600">
-                  {lv.balloons.length} 个气球 · 总升力 {lv.balloons.reduce((s, b) => s + b, 0)} · {lv.placeable.length} 可放置格
-                </div>
+                <div className="mt-2 text-xs text-neutral-600">{lv.balloons.length} 个气球</div>
               </button>
             ))}
           </div>

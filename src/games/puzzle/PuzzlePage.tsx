@@ -695,10 +695,7 @@ export default function PuzzlePage() {
                 className="border border-neutral-800 bg-[#14170f] px-5 py-5 text-left hover:border-[#a6e22e]/50"
               >
                 <div className="text-base text-neutral-200">{lv.name}</div>
-                <div className="mt-2 text-xs text-neutral-600">
-                  {lv.cols}×{lv.rows} · {lv.pieces.length} 块
-                  {lv.blocked.length > 0 && ` · ${lv.blocked.length} 禁用格`}
-                </div>
+                <div className="mt-2 text-xs text-neutral-600">{lv.cols}×{lv.rows}</div>
               </button>
             ))}
           </div>
