@@ -1,39 +1,19 @@
 // ============================================================
-// 黄金替罪羊 —— 内置关卡
-// 角色站在平台「上方」：出生点 / 祭坛是角色所在格，支撑在其正下方
-// scripts/verify.ts 会用脚本操作序列复核每关可通关
+// 黄金替罪羊 —— 预设关卡
+// 来自 references/starrail-platjump/presets.md 的分享码
 // ============================================================
 
 import type { PlatLevel } from './types';
+import { decodePlatLevel } from './shareCode';
 
-export const BUILTIN_LEVELS: PlatLevel[] = [
-  {
-    name: '入门',
-    // 解：D×4（走到梯子底部 (5,3)）W（直达顶部 (5,1)）D（碰到祭坛 (6,1)）
-    cols: 7,
-    rows: 6,
-    steps: 4,
-    spawn: [1, 3],
-    altar: [6, 1],
-    platforms: [[0, 4], [1, 4], [2, 4], [3, 4], [4, 4], [5, 4], [6, 4], [6, 2]],
-    toggles: [],
-    buttons: [],
-    ladders: [[5, 2], [5, 3]],
-  },
-  {
-    name: '替罪之桥',
-    // 按钮是「踩住生效」（与按钮同格触发）：第 6 步玩家走上桥面 (6,3) 时，
-    // 「过去的自己」正好复现第 2 步踩住按钮 (2,3)，桥保持开启；
-    // 下一步玩家离开桥面，影子也离开按钮——错一步都会坠落
-    // 解：D×9
-    cols: 10,
-    rows: 6,
-    steps: 4,
-    spawn: [0, 3],
-    altar: [9, 3],
-    platforms: [[0, 4], [1, 4], [2, 4], [3, 4], [4, 4], [5, 4], [7, 4], [8, 4], [9, 4]],
-    toggles: [{ pos: [6, 4], color: 'yellow', on: false }],
-    buttons: [{ pos: [2, 3], color: 'yellow' }],
-    ladders: [],
-  },
+const PRESET_CODES = [
+  'SPJ2_eyJ2IjoyLCJuIjoi5rC45oGS5Zyj5Z-OLeWlpei1q-eOmyAwMSIsImMiOjEwLCJyIjo3LCJzIjo0LCJzcCI6IjAsMSIsImFsIjoiNiwxIiwicCI6IjAsMjsxLDI7MiwyOzMsMjs0LDI7NCwzOzMsNTs2LDM7Niw1OzYsMiIsInR5IjoiNSwyLDAiLCJ0YiI6IiIsImJ5IjoiMiwxIiwiYmIiOiIiLCJsIjoiIn0',
+  'SPJ2_eyJ2IjoyLCJuIjoi5rC45oGS5Zyj5Z-OLeWlpei1q-eOmyAwMiIsImMiOjYsInIiOjcsInMiOjIsInNwIjoiMSwxIiwiYWwiOiI0LDEiLCJwIjoiNCw1OzMsNTsxLDQ7MiwzOzMsMzsxLDI7NCwyIiwidHkiOiIzLDIsMCIsInRiIjoiIiwiYnkiOiIzLDIiLCJiYiI6IiIsImwiOiIyLDIifQ',
+  'SPJ2_eyJ2IjoyLCJuIjoi5rC45oGS5Zyj5Z-OLeWlpei1q-eOmyAwMyIsImMiOjgsInIiOjcsInMiOjUsInNwIjoiMCwxIiwiYWwiOiI3LDEiLCJwIjoiMSwyOzUsNTs0LDU7Myw1OzcsMjs1LDI7NCwyOzIsMjswLDI7MSwzIiwidHkiOiI2LDIsMDszLDIsMSIsImJ5IjoiMSwxIiwiYmIiOiIiLCJsIjoiIn0',
+  'SPJ2_eyJ2IjoyLCJuIjoi5rC45oGS5Zyj5Z-OLeWlpei1q-eOmyAwNCIsImMiOjcsInIiOjcsInMiOjIsInNwIjoiMSwxIiwiYWwiOiI1LDIiLCJwIjoiMSw1OzEsMzs0LDM7NSwzOzUsMjszLDI7MiwyOzEsMiIsInR5IjoiNCwyLDEiLCJ0YiI6IiIsImJ5IjoiMywxIiwiYmIiOiIiLCJsIjoiIn0',
+  'SPJ2_eyJ2IjoyLCJuIjoi5rW06KGA5oiY56uvLeaCrOmUi-WfjiAwMSIsImMiOjcsInIiOjcsInMiOjUsInNwIjoiMSwyIiwiYWwiOiIwLDAiLCJwIjoiNSw1OzQsNTszLDU7Niw1OzIsNDsxLDM7MiwxOzEsMTswLDEiLCJ0eSI6IjQsMSwwIiwidGIiOiI1LDEsMDszLDEsMCIsImJ5IjoiNCw0IiwiYmIiOiI1LDQ7Myw0IiwibCI6IjIsMzszLDQ7Niw0OzYsMzs2LDI7NiwxIn0',
+  'SPJ2_eyJ2IjoyLCJuIjoi5rW06KGA5oiY56uvLeaCrOmUi-WfjiAwMiIsImMiOjEwLCJyIjo4LCJzIjo1LCJzcCI6IjQsMiIsImFsIjoiMyw1IiwicCI6IjcsNjs2LDY7NSw2OzMsNjswLDY7MSwxOzEsMjs0LDU7Niw1OzUsNDs0LDM7NiwzOzcsNTs5LDU7OSw0OzEsMyIsInR5IjoiMywzLDEiLCJ0YiI6IjMsNSwxIiwiYnkiOiI3LDQiLCJiYiI6IjYsNSIsImwiOiI1LDU7Niw0OzQsNDs1LDMifQ',
+  'SPJ2_eyJ2IjoyLCJuIjoi5rW06KGA5oiY56uvLeaCrOmUi-WfjiAwMyIsImMiOjcsInIiOjcsInMiOjYsInNwIjoiMiwxIiwiYWwiOiI2LDQiLCJwIjoiNiw1OzQsNTsyLDU7MCw1OzYsMzs1LDI7MiwyOzEsMjszLDUiLCJ0eSI6IjEsNSwwOzUsNSwwOzYsMiwxIiwidGIiOiIiLCJieSI6IjAsNDs2LDIiLCJiYiI6IiIsImwiOiI0LDQ7NCwzOzMsNDszLDM7MywyOzQsMiJ9',
 ];
+
+export const BUILTIN_LEVELS: PlatLevel[] = PRESET_CODES.map(decodePlatLevel);

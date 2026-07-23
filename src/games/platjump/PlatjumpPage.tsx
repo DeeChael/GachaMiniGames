@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import type { Dir, PlatLevel } from './types';
-import { TOGGLE_COLORS, cellKey } from './types';
+import { cellKey } from './types';
 import type { PlatState } from './engine';
 import { buildCtx, createGame, heldButtons, stepGame, toggleCellOn } from './engine';
 import { BUILTIN_LEVELS } from './levels';
@@ -357,7 +357,6 @@ export default function PlatjumpPage() {
                 <div className="text-base text-neutral-200">{lv.name}</div>
                 <div className="mt-2 text-xs text-neutral-600">
                   {lv.cols}×{lv.rows} · {lv.steps} 步
-                  {lv.toggles.length > 0 && ` · ${[...new Set(lv.toggles.map((t) => TOGGLE_COLORS[t.color].name))].join('/')}平台`}
                 </div>
               </button>
             ))}
