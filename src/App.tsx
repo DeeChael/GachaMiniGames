@@ -6,6 +6,8 @@ import BalloonPage from './games/balloon/BalloonPage';
 import BalloonEditorPage from './games/balloon/EditorPage';
 import PlatjumpPage from './games/platjump/PlatjumpPage';
 import PlatjumpEditorPage from './games/platjump/EditorPage';
+import ColorfillPage from './games/colorfill/ColorfillPage';
+import ColorfillEditorPage from './games/colorfill/EditorPage';
 
 // 顶栏菜单：按二游分组，选项显示游戏 logo，悬停下拉显示小游戏名称
 interface NavGame {
@@ -28,23 +30,31 @@ const NAV_MENU: NavGame[] = [
     logo: `${import.meta.env.BASE_URL}logos/starrail.png`,
     items: [{ name: '黄金替罪羊', path: '/platjump' }],
   },
+  {
+    game: '鸣潮',
+    logo: `${import.meta.env.BASE_URL}logos/wuwa.png`,
+    items: [{ name: '溢彩画', path: '/colorfill' }],
+  },
   // 后续二游在这里添加
 ];
 
-/** 按页面切换暗色主题：主页灰色系，终末地绿黑，星穹铁道蓝黑 */
+/** 按页面切换暗色主题：主页灰色系，终末地绿黑，星穹铁道蓝黑，鸣潮金黑 */
 const THEMES = {
   home: { bg: '#111214', panel: '#1a1c1f' },
   endfield: { bg: '#0b0e09', panel: '#14170f' },
   starrail: { bg: '#0a0f1a', panel: '#141a28' },
+  wuwa: { bg: '#0b0d10', panel: '#14181d' },
 } as const;
 
 export default function App() {
   const { pathname } = useLocation();
   const theme = pathname.startsWith('/platjump')
     ? THEMES.starrail
-    : pathname === '/'
-      ? THEMES.home
-      : THEMES.endfield;
+    : pathname.startsWith('/colorfill')
+      ? THEMES.wuwa
+      : pathname === '/'
+        ? THEMES.home
+        : THEMES.endfield;
 
   return (
     <div className="min-h-screen text-neutral-300" style={{ background: theme.bg }}>
@@ -103,6 +113,8 @@ export default function App() {
         <Route path="/balloon/editor" element={<BalloonEditorPage />} />
         <Route path="/platjump" element={<PlatjumpPage />} />
         <Route path="/platjump/editor" element={<PlatjumpEditorPage />} />
+        <Route path="/colorfill" element={<ColorfillPage />} />
+        <Route path="/colorfill/editor" element={<ColorfillEditorPage />} />
       </Routes>
     </div>
   );

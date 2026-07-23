@@ -11,6 +11,10 @@ import { decodeBalloonLevel, encodeBalloonLevel } from '../src/games/balloon/sha
 import { BUILTIN_LEVELS as PLAT_LEVELS } from '../src/games/platjump/levels';
 import { decodePlatLevel, encodePlatLevel } from '../src/games/platjump/shareCode';
 import { validatePlatLevel } from '../src/games/platjump/types';
+import { BUILTIN_LEVELS as FILL_LEVELS } from '../src/games/colorfill/levels';
+import { decodeFillLevel, encodeFillLevel } from '../src/games/colorfill/shareCode';
+import { validateFillLevel } from '../src/games/colorfill/types';
+import { solvableWithinSteps } from '../src/games/colorfill/solver';
 import {
   cellKey as bCellKey,
   netLift,
@@ -145,6 +149,18 @@ for (const lv of PLAT_LEVELS) {
   const roundtrip = canonical(back) === canonical(lv);
   console.log(`替罪羊「${lv.name}」: ${errs.length ? 'INVALID ' + errs.join(',') : 'valid'} 分享码往返=${roundtrip ? 'OK' : 'MISMATCH'}`);
   if (errs.length || !roundtrip) fail++;
+}
+
+// 6. 溢彩画内置关卡：结构合法 + 步数限制内可解 + 分享码往返
+for (const lv of FILL_LEVELS) {
+  const errs = validateFillLevel(lv);
+  const t0 = Date.now();
+  const ok = solvableWithinSteps(lv);
+  const code = encodeFillLevel(lv);
+  const back = decodeFillLevel(code);
+  const roundtrip = canonical(back) === canonical(lv);
+  console.log(`溢彩画「${lv.name}」: ${errs.length ? 'INVALID ' + errs.join(',') : 'valid'} solvable=${ok} (${Date.now() - t0}ms) 分享码往返=${roundtrip ? 'OK' : 'MISMATCH'}`);
+  if (errs.length || !ok || !roundtrip) fail++;
 }
 
 console.log(fail === 0 ? '\n全部通过 ✓' : `\n失败 ${fail} 项 ✗`);
