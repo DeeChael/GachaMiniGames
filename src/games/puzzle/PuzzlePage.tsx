@@ -4,7 +4,7 @@
 // ============================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import type { Cell, ColorCount, Level, PieceColor } from './types';
 import {
   ALL_COLORS,
@@ -176,7 +176,17 @@ function ColorBars({
 
 // ---------------- 游戏主组件 ----------------
 
-export function PuzzleGame({ level, onExit }: { level: Level; onExit: () => void }) {
+export function PuzzleGame({
+  level,
+  test = false,
+  onExit,
+  onBackToEditor,
+}: {
+  level: Level;
+  test?: boolean; // 编辑器试玩模式：返回按钮变为「返回编辑器」
+  onExit: () => void;
+  onBackToEditor?: () => void;
+}) {
   const { rows, cols } = level;
   const { pieces, placements: initialPlacements } = useMemo(() => buildPieces(level), [level]);
   const [placements, setPlacements] = useState<Record<string, Placement | null>>(initialPlacements);
@@ -357,7 +367,7 @@ export function PuzzleGame({ level, onExit }: { level: Level; onExit: () => void
       {/* 顶部信息栏 */}
       <div className="mb-6 flex w-full max-w-6xl items-center justify-between gap-3">
         <div>
-          <div className="text-xs tracking-[0.3em] text-neutral-500">// 电路修复</div>
+          <div className="text-xs tracking-[0.3em] text-neutral-500">// 电路修复{test && ' · 试玩'}</div>
           <h2 className="mt-1 text-2xl font-medium text-neutral-100">{level.name}</h2>
         </div>
         <div className="flex items-center gap-2">
@@ -372,9 +382,15 @@ export function PuzzleGame({ level, onExit }: { level: Level; onExit: () => void
           <button onClick={reset} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
             ↺ 重置
           </button>
-          <button onClick={onExit} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
-            ✕ 返回
-          </button>
+          {test ? (
+            <button onClick={onBackToEditor} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
+              ← 返回编辑器
+            </button>
+          ) : (
+            <button onClick={onExit} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
+              ✕ 返回
+            </button>
+          )}
         </div>
       </div>
 
@@ -571,9 +587,15 @@ export function PuzzleGame({ level, onExit }: { level: Level; onExit: () => void
               <button onClick={() => { reset(); }} className="border border-neutral-600 px-5 py-2.5 text-sm text-neutral-300 hover:border-neutral-400">
                 再玩一次
               </button>
-              <button onClick={onExit} className="border border-[#a6e22e]/60 bg-[#a6e22e]/10 px-5 py-2.5 text-sm text-[#a6e22e] hover:bg-[#a6e22e]/20">
-                返回
-              </button>
+              {test ? (
+                <button onClick={onBackToEditor} className="border border-[#a6e22e]/60 bg-[#a6e22e]/10 px-5 py-2.5 text-sm text-[#a6e22e] hover:bg-[#a6e22e]/20">
+                  ✓ 试玩通过，返回编辑器
+                </button>
+              ) : (
+                <button onClick={onExit} className="border border-[#a6e22e]/60 bg-[#a6e22e]/10 px-5 py-2.5 text-sm text-[#a6e22e] hover:bg-[#a6e22e]/20">
+                  返回
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -585,15 +607,25 @@ export function PuzzleGame({ level, onExit }: { level: Level; onExit: () => void
 // ---------------- 拼图模块入口（菜单 + 游戏） ----------------
 
 export default function PuzzlePage() {
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [level, setLevel] = useState<Level | null>(null);
+  const [test, setTest] = useState(false);
+  const [editorState, setEditorState] = useState<unknown>(null);
   const [codeInput, setCodeInput] = useState('');
   const [codeError, setCodeError] = useState('');
   const [restartKey] = useState(0);
 
-  // 支持 ?code= 直接进入分享关卡
+  // 支持 ?code= 直接进入分享关卡；编辑器试玩通过 state 进入
   useEffect(() => {
+    const st = location.state as { level?: Level; test?: boolean; editor?: unknown } | null;
+    if (st?.level) {
+      setLevel(st.level);
+      setTest(!!st.test);
+      setEditorState(st.editor ?? null);
+      return;
+    }
     const code = searchParams.get('code');
     if (code) {
       try {
@@ -602,7 +634,8 @@ export default function PuzzlePage() {
         setCodeError((e as Error).message);
       }
     }
-  }, [searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const startWithCode = () => {
     try {
@@ -618,7 +651,13 @@ export default function PuzzlePage() {
       <PuzzleGame
         key={`${encodeLevel(level)}-${restartKey}`}
         level={level}
-        onExit={() => setLevel(null)}
+        test={test}
+        onExit={() => {
+          setLevel(null);
+          setTest(false);
+          setEditorState(null);
+        }}
+        onBackToEditor={() => navigate('/puzzle/editor', { state: { editor: editorState } })}
       />
     );
   }

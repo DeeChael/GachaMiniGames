@@ -5,7 +5,7 @@
 // ============================================================
 
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import type { BalloonLevel, BalloonValue, Placed } from './types';
 import {
   BALLOON_INFO,
@@ -29,11 +29,26 @@ const BOARD = GRID * STEP - GAP;
 
 export default function BalloonEditorPage() {
   const navigate = useNavigate();
-  const [name, setName] = useState('我的关卡');
+  const location = useLocation();
+
+  // 试玩返回时：还原编辑器状态
+  const init = useMemo(() => {
+    const st = location.state as {
+      editor?: { name: string; placeable: string[]; placed: Record<string, BalloonValue> };
+    } | null;
+    return st?.editor ?? null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const [name, setName] = useState(init?.name ?? '我的关卡');
   const [placeable, setPlaceable] = useState<Set<string>>(
-    () => new Set(Array.from({ length: GRID * GRID }, (_, i) => cellKey(i % GRID, Math.floor(i / GRID)))),
+    () =>
+      new Set(
+        init?.placeable ??
+          Array.from({ length: GRID * GRID }, (_, i) => cellKey(i % GRID, Math.floor(i / GRID))),
+      ),
   );
-  const [placed, setPlaced] = useState<Record<string, BalloonValue>>({});
+  const [placed, setPlaced] = useState<Record<string, BalloonValue>>(init?.placed ?? {});
   const [tool, setTool] = useState<Tool>('place');
   const boardRef = useRef<HTMLDivElement>(null);
   const [shareCode, setShareCode] = useState('');
@@ -108,8 +123,9 @@ export default function BalloonEditorPage() {
     });
   };
 
+  // 试玩：携带编辑器状态，返回编辑器时可还原
   const play = () => {
-    navigate('/balloon', { state: { level } });
+    navigate('/balloon', { state: { level, test: true, editor: { name, placeable: [...placeable], placed } } });
   };
 
   const generate = () => {
@@ -312,22 +328,20 @@ export default function BalloonEditorPage() {
               ) : (
                 <div className="mb-3 text-xs text-[#a6e22e]">✓ 关卡合法，升力平衡</div>
               )}
-              <div className="flex gap-2">
-                <button
-                  onClick={generate}
-                  disabled={errors.length > 0}
-                  className="flex-1 border border-[#a6e22e]/60 bg-[#a6e22e]/10 px-4 py-3 text-base text-[#a6e22e] hover:bg-[#a6e22e]/20 disabled:cursor-not-allowed disabled:opacity-30"
-                >
-                  生成分享码
-                </button>
-                <button
-                  onClick={play}
-                  disabled={errors.length > 0}
-                  className="flex-1 border border-neutral-700 px-4 py-3 text-base text-neutral-300 hover:border-neutral-500 disabled:cursor-not-allowed disabled:opacity-30"
-                >
-                  立即试玩 →
-                </button>
-              </div>
+              <button
+                onClick={play}
+                disabled={errors.length > 0}
+                className="mb-2 w-full border border-neutral-700 px-4 py-3 text-base text-neutral-300 hover:border-neutral-500 disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                ▶ 试玩
+              </button>
+              <button
+                onClick={generate}
+                disabled={errors.length > 0}
+                className="w-full border border-[#a6e22e]/60 bg-[#a6e22e]/10 px-4 py-3 text-base text-[#a6e22e] hover:bg-[#a6e22e]/20 disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                生成分享码
+              </button>
               {shareCode && (
                 <div className="mt-4">
                   <textarea

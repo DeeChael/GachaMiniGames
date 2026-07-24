@@ -5,7 +5,7 @@
 // ============================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import type { Cell, Level, PieceColor, Shape } from './types';
 import {
   ALL_COLORS,
@@ -51,11 +51,22 @@ interface EditorDrag {
 
 export default function EditorPage() {
   const navigate = useNavigate();
-  const [name, setName] = useState('我的关卡');
-  const [rows, setRows] = useState(5);
-  const [cols, setCols] = useState(5);
-  const [blocked, setBlocked] = useState<Set<string>>(new Set());
-  const [pieces, setPieces] = useState<EditorPiece[]>([]);
+  const location = useLocation();
+
+  // 试玩返回时：还原编辑器状态
+  const init = useMemo(() => {
+    const st = location.state as {
+      editor?: { name: string; rows: number; cols: number; blocked: string[]; pieces: EditorPiece[] };
+    } | null;
+    return st?.editor ?? null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const [name, setName] = useState(init?.name ?? '我的关卡');
+  const [rows, setRows] = useState(init?.rows ?? 5);
+  const [cols, setCols] = useState(init?.cols ?? 5);
+  const [blocked, setBlocked] = useState<Set<string>>(() => new Set(init?.blocked ?? []));
+  const [pieces, setPieces] = useState<EditorPiece[]>(init?.pieces ?? []);
 
   const [tool, setTool] = useState<Tool>('place');
   const [color, setColor] = useState<PieceColor>('green');
@@ -267,6 +278,13 @@ export default function EditorPage() {
   const generate = () => {
     setShareCode(encodeLevel(level));
     setCopied(false);
+  };
+
+  // 试玩：携带编辑器状态，返回编辑器时可还原
+  const play = () => {
+    navigate('/puzzle', {
+      state: { level, test: true, editor: { name, rows, cols, blocked: [...blocked], pieces } },
+    });
   };
 
   const copyCode = async () => {
@@ -564,6 +582,13 @@ export default function EditorPage() {
                 <div className="mb-3 text-xs text-[#a6e22e]">✓ 关卡合法，可以生成分享码</div>
               )}
               <button
+                onClick={play}
+                disabled={errors.length > 0}
+                className="mb-2 w-full border border-neutral-700 px-4 py-3 text-base text-neutral-300 hover:border-neutral-500 disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                ▶ 试玩
+              </button>
+              <button
                 onClick={generate}
                 disabled={errors.length > 0}
                 className="w-full border border-[#a6e22e]/60 bg-[#a6e22e]/10 px-4 py-3 text-base text-[#a6e22e] hover:bg-[#a6e22e]/20 disabled:cursor-not-allowed disabled:opacity-30"
@@ -579,17 +604,9 @@ export default function EditorPage() {
                     onFocus={(e) => e.target.select()}
                     className="w-full resize-none border border-neutral-800 bg-[#14170f] p-3 font-mono text-xs break-all text-neutral-400 outline-none"
                   />
-                  <div className="mt-2 flex gap-2">
-                    <button onClick={copyCode} className="flex-1 border border-neutral-700 px-4 py-2.5 text-sm text-neutral-300 hover:border-neutral-500">
-                      {copied ? '✓ 已复制' : '复制分享码'}
-                    </button>
-                    <button
-                      onClick={() => navigate(`/puzzle?code=${encodeURIComponent(shareCode)}`)}
-                      className="flex-1 border border-[#a6e22e]/60 bg-[#a6e22e]/10 px-4 py-2.5 text-sm text-[#a6e22e] hover:bg-[#a6e22e]/20"
-                    >
-                      立即试玩 →
-                    </button>
-                  </div>
+                  <button onClick={copyCode} className="mt-2 w-full border border-neutral-700 px-4 py-2.5 text-sm text-neutral-300 hover:border-neutral-500">
+                    {copied ? '✓ 已复制' : '复制分享码'}
+                  </button>
                 </div>
               )}
             </div>

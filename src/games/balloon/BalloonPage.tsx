@@ -219,10 +219,14 @@ const BOARD = GRID * CELL + (GRID - 1) * GAP;
 
 export function BalloonGame({
   level,
+  test = false,
   onExit,
+  onBackToEditor,
 }: {
   level: BalloonLevel;
+  test?: boolean; // 编辑器试玩模式：返回按钮变为「返回编辑器」
   onExit: () => void;
+  onBackToEditor?: () => void;
 }) {
   const [placed, setPlaced] = useState<Record<string, BalloonValue>>({});
   const [won, setWon] = useState(false);
@@ -317,16 +321,22 @@ export function BalloonGame({
       {/* 顶部信息栏 */}
       <div className="mb-6 flex w-full max-w-6xl items-center justify-between gap-3">
         <div>
-          <div className="text-xs tracking-[0.3em] text-neutral-500">// 浮空回收</div>
+          <div className="text-xs tracking-[0.3em] text-neutral-500">// 浮空回收{test && ' · 试玩'}</div>
           <h2 className="mt-1 text-2xl font-medium text-neutral-100">{level.name}</h2>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={reset} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
             ↺ 重置 (R)
           </button>
-          <button onClick={onExit} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
-            ✕ 返回
-          </button>
+          {test ? (
+            <button onClick={onBackToEditor} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
+              ← 返回编辑器
+            </button>
+          ) : (
+            <button onClick={onExit} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
+              ✕ 返回
+            </button>
+          )}
         </div>
       </div>
 
@@ -497,9 +507,15 @@ export function BalloonGame({
               <button onClick={reset} className="border border-neutral-600 px-5 py-2.5 text-sm text-neutral-300 hover:border-neutral-400">
                 再玩一次
               </button>
-              <button onClick={onExit} className="border border-[#a6e22e]/60 bg-[#a6e22e]/10 px-5 py-2.5 text-sm text-[#a6e22e] hover:bg-[#a6e22e]/20">
-                返回
-              </button>
+              {test ? (
+                <button onClick={onBackToEditor} className="border border-[#a6e22e]/60 bg-[#a6e22e]/10 px-5 py-2.5 text-sm text-[#a6e22e] hover:bg-[#a6e22e]/20">
+                  ✓ 试玩通过，返回编辑器
+                </button>
+              ) : (
+                <button onClick={onExit} className="border border-[#a6e22e]/60 bg-[#a6e22e]/10 px-5 py-2.5 text-sm text-[#a6e22e] hover:bg-[#a6e22e]/20">
+                  返回
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -516,18 +532,20 @@ export default function BalloonPage() {
   const [searchParams] = useSearchParams();
   // 初始关卡：编辑器试玩（state）或分享码链接（?code=）
   const initial = useMemo(() => {
-    const fromState = (location.state as { level?: BalloonLevel } | null)?.level;
-    if (fromState) return { level: fromState, error: '' };
+    const st = location.state as { level?: BalloonLevel; test?: boolean; editor?: unknown } | null;
+    if (st?.level) return { level: st.level, test: !!st.test, editor: st.editor ?? null, error: '' };
     const code = searchParams.get('code');
-    if (!code) return { level: null as BalloonLevel | null, error: '' };
+    if (!code) return { level: null as BalloonLevel | null, test: false, editor: null as unknown, error: '' };
     try {
-      return { level: decodeBalloonLevel(code), error: '' };
+      return { level: decodeBalloonLevel(code), test: false, editor: null as unknown, error: '' };
     } catch (e) {
-      return { level: null as BalloonLevel | null, error: (e as Error).message };
+      return { level: null as BalloonLevel | null, test: false, editor: null as unknown, error: (e as Error).message };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [level, setLevel] = useState<BalloonLevel | null>(initial.level);
+  const [test, setTest] = useState(initial.test);
+  const [editorState, setEditorState] = useState<unknown>(initial.editor);
   const [codeInput, setCodeInput] = useState('');
   const [codeError, setCodeError] = useState(initial.error);
 
@@ -545,7 +563,13 @@ export default function BalloonPage() {
       <BalloonGame
         key={level.name + level.balloons.join(',')}
         level={level}
-        onExit={() => setLevel(null)}
+        test={test}
+        onExit={() => {
+          setLevel(null);
+          setTest(false);
+          setEditorState(null);
+        }}
+        onBackToEditor={() => navigate('/balloon/editor', { state: { editor: editorState } })}
       />
     );
   }
