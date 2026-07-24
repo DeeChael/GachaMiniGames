@@ -32,6 +32,13 @@ export interface ButtonTile {
   color: ToggleColor;
 }
 
+/** 传送门：必须且仅能放置两个，且必须放在平台之上；使用后关闭，踩住橙色按钮可再次激活 */
+export interface PortalDef {
+  pos: Cell[]; // 恰好 2 个格子
+  /** 默认开关状态：true = 开 */
+  open: boolean;
+}
+
 /** 关卡定义 */
 export interface PlatLevel {
   name: string;
@@ -44,6 +51,8 @@ export interface PlatLevel {
   toggles: ToggleTileDef[]; // 可开关平台（逐格默认状态）
   buttons: ButtonTile[];
   ladders: Cell[]; // 梯子格（竖向连续），梯子底部必须放置平台
+  portals: PortalDef | null; // 传送门（可选；放置时必须恰好两个）
+  orangeButton: Cell | null; // 橙色按钮（可选）：显示传送门状态，踩住时传送门（重新）激活
 }
 
 export const cellKey = (x: number, y: number) => `${x},${y}`;
@@ -81,7 +90,7 @@ export function ladderRuns(ladders: Cell[]): Cell[][] {
 /** 校验关卡结构是否合法，返回错误信息列表（空数组 = 合法） */
 export function validatePlatLevel(level: PlatLevel): string[] {
   const errors: string[] = [];
-  const { cols, rows, steps, spawn, altar, platforms, toggles, buttons, ladders } = level;
+  const { cols, rows, steps, spawn, altar, platforms, toggles, buttons, ladders, portals, orangeButton } = level;
   const inBounds = ([x, y]: Cell) => x >= 0 && y >= 0 && x < cols && y < rows;
 
   if (cols < MIN_COLS || cols > MAX_COLS || rows < MIN_ROWS || rows > MAX_ROWS) {
@@ -118,6 +127,29 @@ export function validatePlatLevel(level: PlatLevel): string[] {
     buttonSeen.add(k);
   }
 
+  // 传送门：放置时必须恰好两个；可与平台、可开关平台、黄蓝按钮同格；
+  // 不能与梯子、橙色按钮同格，两个传送门也不能同格
+  if (portals) {
+    if (portals.pos.length !== 2) errors.push('传送门必须且仅能放置两个');
+    const ladderSet = new Set(ladders.map(([x, y]) => cellKey(x, y)));
+    const portalSeen = new Set<string>();
+    for (const c of portals.pos) {
+      if (!inBounds(c)) errors.push('传送门越界');
+      const k = cellKey(c[0], c[1]);
+      if (portalSeen.has(k)) errors.push('两个传送门不能放在同一格');
+      portalSeen.add(k);
+      if (ladderSet.has(k)) errors.push('传送门不能与梯子同格');
+      if (orangeButton && cellKey(orangeButton[0], orangeButton[1]) === k) errors.push('传送门不能与橙色按钮同格');
+    }
+  }
+
+  // 橙色按钮：最多一个；不能与其他按钮同格（与传送门的互斥在上面检查）；必须先有传送门
+  if (orangeButton) {
+    if (!portals) errors.push('必须先放置传送门才能放置橙色按钮');
+    if (!inBounds(orangeButton)) errors.push('橙色按钮越界');
+    if (buttonSeen.has(cellKey(orangeButton[0], orangeButton[1]))) errors.push('橙色按钮不能与其他按钮同格');
+  }
+
   // 存在某种颜色的可开关平台时，必须放置对应颜色的按钮
   const colors = new Set(toggles.map((t) => t.color));
   for (const c of colors) {
@@ -142,6 +174,12 @@ export function validatePlatLevel(level: PlatLevel): string[] {
   if (altarOk && !altarSupported(altar)) errors.push('祭坛必须放在平台或梯子顶部之上');
   for (const b of buttons) {
     if (inBounds(b.pos) && !supported(b.pos)) errors.push('按钮必须放在平台之上');
+  }
+  if (orangeButton && inBounds(orangeButton) && !supported(orangeButton)) errors.push('橙色按钮必须放在平台之上');
+  if (portals) {
+    for (const c of portals.pos) {
+      if (inBounds(c) && !supported(c)) errors.push('传送门必须放在平台之上');
+    }
   }
 
   return [...new Set(errors)];

@@ -6,6 +6,9 @@
 //   2. 超过关卡步数后，出生点出现「过去的自己」，复现玩家前 N 步动作
 //   3. 双方自由落体结算
 // 按钮是「踩住生效」：踩上切换平台状态，离开恢复原状态（不做持久切换）。
+// 传送门：走进开启的一端会传送到另一端并关闭；橙色按钮被踩住时传送门
+// 持续激活——此时另一端进人会在门里无限来回传送，NPC 直接死亡
+// （再见了所有的替罪羊），玩家直接失败。
 // 玩家与 NPC 接触直接判负。
 // ============================================================
 
@@ -14,10 +17,13 @@ import { cellKey, ladderRuns } from './types';
 
 export interface PlatState {
   player: Cell;
-  npc: Cell | null; // 「过去的自己」，未出现 / 坠底消失时为 null
+  npc: Cell | null; // 「过去的自己」，未出现 / 坠底消失 / 传送门中死亡时为 null
   npcSpawned: boolean;
   history: Dir[]; // 玩家的真实移动记录（无效操作不计入）
   status: 'playing' | 'won' | 'lost';
+  portalOpen: boolean; // 传送门当前状态
+  npcPortalDeath: boolean; // NPC 在传送门里无限来回传送而死（提示「再见了所有的替罪羊」）
+  playerPortalDeath: boolean; // 玩家在传送门里无限来回传送 → 直接失败
 }
 
 /** 由关卡预计算的查询上下文 */
@@ -29,6 +35,8 @@ export interface PlatCtx {
   baseToTop: Map<string, Cell>; // 梯子底部格（最底横档，站在下方平台上）→ 梯子顶部上方一格
   topToBase: Map<string, Cell>; // 梯子顶部上方一格 → 梯子底部格
   altarK: string;
+  portalAt: Map<string, Cell>; // 传送门格 → 另一端格
+  orangeButtonK: string | null; // 橙色按钮格
 }
 
 export function buildCtx(level: PlatLevel): PlatCtx {
@@ -43,6 +51,12 @@ export function buildCtx(level: PlatLevel): PlatCtx {
     baseToTop.set(cellKey(bottom[0], bottom[1]), above);
     topToBase.set(cellKey(above[0], above[1]), bottom);
   }
+  const portalAt = new Map<string, Cell>();
+  if (level.portals && level.portals.pos.length === 2) {
+    const [a, b] = level.portals.pos;
+    portalAt.set(cellKey(a[0], a[1]), b);
+    portalAt.set(cellKey(b[0], b[1]), a);
+  }
   return {
     platforms: new Set(level.platforms.map(([x, y]) => cellKey(x, y))),
     toggleAt: new Map(
@@ -53,6 +67,8 @@ export function buildCtx(level: PlatLevel): PlatCtx {
     baseToTop,
     topToBase,
     altarK: cellKey(level.altar[0], level.altar[1]),
+    portalAt,
+    orangeButtonK: level.orangeButton ? cellKey(level.orangeButton[0], level.orangeButton[1]) : null,
   };
 }
 
@@ -86,6 +102,43 @@ function solid(ctx: PlatCtx, held: Record<ToggleColor, boolean>, x: number, y: n
   return false;
 }
 
+/** 橙色按钮当前是否被踩住（玩家或 NPC 与按钮在同一格） */
+function orangeHeld(ctx: PlatCtx, s: PlatState): boolean {
+  if (!ctx.orangeButtonK) return false;
+  if (cellKey(s.player[0], s.player[1]) === ctx.orangeButtonK) return true;
+  return s.npc !== null && cellKey(s.npc[0], s.npc[1]) === ctx.orangeButtonK;
+}
+
+/** 踩住橙色按钮：传送门（重新）激活 */
+function applyOrangeButton(ctx: PlatCtx, s: PlatState): void {
+  if (orangeHeld(ctx, s)) s.portalOpen = true;
+}
+
+/**
+ * 传送门触发：actor 位于开启的传送门格时传送到另一端，随后传送门关闭。
+ * 若此时橙色按钮被踩住（传送门一直为开启状态），actor 会在两端无限来回
+ * 传送：NPC 直接死亡（再见了所有的替罪羊），玩家直接失败
+ */
+function applyPortal(ctx: PlatCtx, s: PlatState, actor: 'player' | 'npc'): void {
+  const a = s[actor];
+  if (!a || !s.portalOpen) return;
+  const dest = ctx.portalAt.get(cellKey(a[0], a[1]));
+  if (!dest) return;
+  a[0] = dest[0];
+  a[1] = dest[1];
+  if (orangeHeld(ctx, s)) {
+    if (actor === 'player') {
+      s.status = 'lost';
+      s.playerPortalDeath = true;
+    } else {
+      s.npc = null;
+      s.npcPortalDeath = true;
+    }
+  } else {
+    s.portalOpen = false;
+  }
+}
+
 /** 计算一次操作的目标位置；无法真实移动时返回 null（不计步） */
 function moveTarget(ctx: PlatCtx, level: PlatLevel, actor: Cell, dir: Dir): Cell | null {
   const [x, y] = actor;
@@ -109,14 +162,20 @@ export function createGame(level: PlatLevel): PlatState {
     npcSpawned: level.steps === 0,
     history: [],
     status: 'playing',
+    portalOpen: level.portals?.open ?? false,
+    npcPortalDeath: false,
+    playerPortalDeath: false,
   };
   while (s.player[1] + 1 < level.rows && !solid(ctx, heldButtons(ctx, s.player, null), s.player[0], s.player[1] + 1)) {
     s.player[1]++;
+    applyPortal(ctx, s, 'player');
+    if (s.status !== 'playing') return s;
     if (cellKey(s.player[0], s.player[1]) === ctx.altarK) {
       s.status = 'won';
       return s;
     }
   }
+  applyOrangeButton(ctx, s);
   if (!solid(ctx, heldButtons(ctx, s.player, null), s.player[0], s.player[1] + 1) && s.player[1] + 1 >= level.rows) {
     s.status = 'lost';
   }
@@ -136,10 +195,18 @@ export function stepGame(level: PlatLevel, ctx: PlatCtx, prev: PlatState, dir: D
     npcSpawned: prev.npcSpawned,
     history: [...prev.history, dir],
     status: 'playing',
+    portalOpen: prev.portalOpen,
+    npcPortalDeath: prev.npcPortalDeath,
+    playerPortalDeath: false,
   };
 
   const touching = () => s.npc !== null && s.npc[0] === s.player[0] && s.npc[1] === s.player[1];
   const onAltar = () => cellKey(s.player[0], s.player[1]) === ctx.altarK;
+
+  // 玩家落入开启的传送门：传送（橙色按钮被踩住时在门里无限往返，直接失败）
+  applyPortal(ctx, s, 'player');
+  if (s.status !== 'playing') return s;
+  applyOrangeButton(ctx, s);
 
   if (onAltar()) {
     s.status = 'won';
@@ -157,6 +224,9 @@ export function stepGame(level: PlatLevel, ctx: PlatCtx, prev: PlatState, dir: D
       const nt = moveTarget(ctx, level, s.npc, s.history[idx]);
       if (nt) s.npc = nt;
     }
+    // NPC 落入开启的传送门：传送（橙色按钮被踩住时在门里无限往返，直接死亡）
+    applyPortal(ctx, s, 'npc');
+    applyOrangeButton(ctx, s);
   }
 
   // 双方移动完成后再判定接触（可能是前后跟随的关系：玩家跨入 NPC 刚离开的位置不算接触）
@@ -171,6 +241,9 @@ export function stepGame(level: PlatLevel, ctx: PlatCtx, prev: PlatState, dir: D
     if (!a) return 'ok';
     while (a[1] + 1 < level.rows && !solid(ctx, heldButtons(ctx, s.player, s.npc), a[0], a[1] + 1)) {
       a[1]++;
+      applyPortal(ctx, s, actor);
+      if (s.status !== 'playing') return 'ok';
+      if (actor === 'npc' && !s.npc) return 'ok'; // NPC 在传送门里死亡
       if (actor === 'player' && onAltar()) return 'ok';
       if (touching()) return 'ok';
     }
@@ -181,6 +254,8 @@ export function stepGame(level: PlatLevel, ctx: PlatCtx, prev: PlatState, dir: D
     s.status = 'lost';
     return s;
   }
+  if (s.status !== 'playing') return s;
+  applyOrangeButton(ctx, s);
   if (onAltar()) {
     s.status = 'won';
     return s;
@@ -190,6 +265,7 @@ export function stepGame(level: PlatLevel, ctx: PlatCtx, prev: PlatState, dir: D
     return s;
   }
   if (s.npc && fall('npc') === 'out') s.npc = null; // NPC 坠底消失
+  applyOrangeButton(ctx, s);
   if (touching()) s.status = 'lost';
   return s;
 }

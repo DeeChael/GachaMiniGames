@@ -11,6 +11,7 @@ import { decodeBalloonLevel, encodeBalloonLevel } from '../src/games/balloon/sha
 import { BUILTIN_LEVELS as PLAT_LEVELS } from '../src/games/platjump/levels';
 import { decodePlatLevel, encodePlatLevel } from '../src/games/platjump/shareCode';
 import { validatePlatLevel } from '../src/games/platjump/types';
+import { buildCtx, createGame, stepGame } from '../src/games/platjump/engine';
 import { BUILTIN_LEVELS as FILL_LEVELS } from '../src/games/colorfill/levels';
 import { decodeFillLevel, encodeFillLevel } from '../src/games/colorfill/shareCode';
 import { validateFillLevel } from '../src/games/colorfill/types';
@@ -152,6 +153,44 @@ for (const lv of PLAT_LEVELS) {
   const roundtrip = canonical(back) === canonical(lv);
   console.log(`替罪羊「${lv.name}」: ${errs.length ? 'INVALID ' + errs.join(',') : 'valid'} 分享码往返=${roundtrip ? 'OK' : 'MISMATCH'}`);
   if (errs.length || !roundtrip) fail++;
+}
+
+// 5b. 替罪羊传送门：校验规则 + 分享码往返 + 传送/关闭/循环死亡行为
+{
+  const lv: (typeof PLAT_LEVELS)[number] = {
+    name: '传送门回归', cols: 12, rows: 4, steps: 4,
+    spawn: [0, 2], altar: [11, 2],
+    platforms: [[0,3],[1,3],[2,3],[3,3],[4,3],[5,3],[6,3],[7,3],[8,3],[9,3],[10,3],[11,3]],
+    toggles: [], buttons: [], ladders: [],
+    portals: { pos: [[3, 2], [10, 2]], open: true },
+    orangeButton: [8, 2],
+  };
+  const errs = validatePlatLevel(lv);
+  const roundtrip = canonical(decodePlatLevel(encodePlatLevel(lv))) === canonical(lv);
+  console.log(`替罪羊传送门: ${errs.length ? 'INVALID ' + errs.join(',') : 'valid'} 分享码往返=${roundtrip ? 'OK' : 'MISMATCH'}`);
+  if (errs.length || !roundtrip) fail++;
+  // 只放一个传送门必须报错
+  if (!validatePlatLevel({ ...lv, portals: { pos: [[3, 2]], open: true } }).some((e) => e.includes('两个'))) {
+    console.log('替罪羊传送门: 单个传送门未被拒绝 ✗');
+    fail++;
+  }
+  // 传送门必须放在平台之上
+  if (!validatePlatLevel({ ...lv, portals: { pos: [[3, 1], [10, 2]], open: true } }).some((e) => e.includes('平台之上'))) {
+    console.log('替罪羊传送门: 悬空的传送门未被拒绝 ✗');
+    fail++;
+  }
+  // 没有传送门时不能放橙色按钮
+  if (!validatePlatLevel({ ...lv, portals: null }).some((e) => e.includes('传送门'))) {
+    console.log('替罪羊传送门: 无传送门时的橙色按钮未被拒绝 ✗');
+    fail++;
+  }
+  // NPC 进传送门时玩家踩住橙色按钮 -> NPC 循环死亡（再见了所有的替罪羊）
+  let s = createGame(lv);
+  const ctx = buildCtx(lv);
+  for (const d of ['D','D','D','A','A','D','A'] as const) s = stepGame(lv, ctx, s, d);
+  const npcOk = s.npcPortalDeath && s.npc === null && s.status === 'playing';
+  console.log(`替罪羊传送门: NPC 循环死亡=${npcOk ? 'OK' : 'FAIL'}`);
+  if (!npcOk) fail++;
 }
 
 // 6. 溢彩画内置关卡：结构合法 + 步数限制内可解 + 分享码往返

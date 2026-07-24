@@ -23,6 +23,9 @@ interface PackedLevel {
   by: string; // 黄色按钮
   bb: string; // 蓝色按钮
   l: string; // 梯子
+  pt: string; // 传送门 "x,y;x,y"（恰好两个，空 = 无）
+  po: number; // 传送门默认状态：1 = 开
+  ob: string; // 橙色按钮 "x,y"（空 = 无）
 }
 
 const packCells = (cells: Cell[]) => cells.map(([x, y]) => `${x},${y}`).join(';');
@@ -82,6 +85,9 @@ export function encodePlatLevel(level: PlatLevel): string {
     by: packCells(level.buttons.filter((b) => b.color === 'yellow').map((b) => b.pos)),
     bb: packCells(level.buttons.filter((b) => b.color === 'blue').map((b) => b.pos)),
     l: packCells(level.ladders),
+    pt: level.portals ? packCells(level.portals.pos) : '',
+    po: level.portals?.open ? 1 : 0,
+    ob: level.orangeButton ? packOne(level.orangeButton) : '',
   };
   return PREFIX + toBase64Url(JSON.stringify(packed));
 }
@@ -121,6 +127,11 @@ export function decodePlatLevel(code: string): PlatLevel {
       ...unpackCells(typeof packed.bb === 'string' ? packed.bb : '').map((pos) => ({ pos, color: 'blue' as ToggleColor })),
     ],
     ladders: unpackCells(typeof packed.l === 'string' ? packed.l : ''),
+    portals:
+      typeof packed.pt === 'string' && packed.pt
+        ? { pos: unpackCells(packed.pt), open: packed.po === 1 }
+        : null,
+    orangeButton: typeof packed.ob === 'string' && packed.ob ? one(packed.ob) : null,
   };
   if (level.cols < MIN_COLS || level.cols > MAX_COLS || level.rows < MIN_ROWS || level.rows > MAX_ROWS) {
     throw new Error('分享码内容无效：场景尺寸超出范围');

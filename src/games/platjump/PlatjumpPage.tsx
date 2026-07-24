@@ -18,6 +18,7 @@ import {
   NpcIcon,
   PlatformTile,
   PlayerIcon,
+  PortalTile,
   SpawnTile,
   ToggleTile,
 } from './Tiles';
@@ -70,11 +71,13 @@ export function PlatjumpGame({
   const flavor =
     gs.status !== 'playing'
       ? ''
-      : !gs.npcSpawned
-        ? `${beforeShadow} 步之后，过去的自己将化为敌人`
-        : npcMoving || level.steps === 0
-          ? '过去的自己，作为黑暗的化身出现'
-          : '过去的自己走完了命运，不再前进';
+      : gs.npcPortalDeath
+        ? '再见了所有的替罪羊'
+        : !gs.npcSpawned
+          ? `${beforeShadow} 步之后，过去的自己将化为敌人`
+          : npcMoving || level.steps === 0
+            ? '过去的自己，作为黑暗的化身出现'
+            : '过去的自己走完了命运，不再前进';
 
   const posStyle = (c: [number, number]): React.CSSProperties => ({
     left: c[0] * cs,
@@ -142,7 +145,9 @@ export function PlatjumpGame({
           ))}
         </span>
       </div>
-      <div className="mb-4 h-5 text-sm tracking-wider text-[#9db4d8]">{flavor}</div>
+      <div className="mb-4 h-5 text-sm tracking-wider" style={{ color: gs.npcPortalDeath ? '#f0a03c' : '#9db4d8' }}>
+        {flavor}
+      </div>
 
       <div className="flex items-end gap-8">
         {/* 屏幕 WASD 按钮 */}
@@ -174,7 +179,18 @@ export function PlatjumpGame({
             ))}
             {level.buttons.map((b) => (
               <div key={`b${b.color}${b.pos}`} className="absolute" style={{ left: b.pos[0] * cs, top: b.pos[1] * cs, width: cs, height: cs }}>
-                <ButtonTile cs={cs} color={b.color} />
+                <ButtonTile cs={cs} color={b.color} pressed={held[b.color]} />
+              </div>
+            ))}
+            {level.orangeButton && (
+              <div className="absolute" style={{ left: level.orangeButton[0] * cs, top: level.orangeButton[1] * cs, width: cs, height: cs }}>
+                {/* 橙色按钮跟随传送门状态：开 = 已按下，关 = 未按下 */}
+                <ButtonTile cs={cs} color="orange" pressed={gs.portalOpen} />
+              </div>
+            )}
+            {level.portals?.pos.map(([x, y]) => (
+              <div key={`pt${x},${y}`} className="absolute" style={{ left: x * cs, top: y * cs, width: cs, height: cs }}>
+                <PortalTile cs={cs} open={gs.portalOpen} />
               </div>
             ))}
             {level.ladders.map(([x, y]) => (
@@ -207,7 +223,9 @@ export function PlatjumpGame({
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70">
           <div className="border border-red-500/50 bg-[#140c0c] px-12 py-10 text-center" style={{ boxShadow: '0 0 60px rgba(224,75,58,0.25)' }}>
             <div className="mb-2 text-xs tracking-[0.4em] text-red-400/70">// FALLEN</div>
-            <div className="mb-8 text-3xl font-medium text-red-300">坠入深渊</div>
+            <div className="mb-8 text-3xl font-medium text-red-300">
+              {gs.playerPortalDeath ? '在传送门中迷失' : '坠入深渊'}
+            </div>
             <div className="flex justify-center gap-3">
               <button onClick={reset} className="border border-neutral-600 px-5 py-2.5 text-sm text-neutral-300 hover:border-neutral-400">
                 ↺ 重试

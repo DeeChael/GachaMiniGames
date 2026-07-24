@@ -23,12 +23,14 @@ import {
   ButtonTile,
   LadderTile,
   PlatformTile,
+  PortalTile,
   SpawnTile,
   ToggleTile,
 } from './Tiles';
 
-type Tool = 'spawn' | 'altar' | 'platform' | 'ty' | 'tb' | 'by' | 'bb' | 'ladder' | 'erase';
+type Tool = 'spawn' | 'altar' | 'platform' | 'ty' | 'tb' | 'by' | 'bb' | 'ladder' | 'portal' | 'ob' | 'erase';
 
+// 前 6 个用数字键 1~6，后面的用 Ctrl+数字（Ctrl+1 = 第 7 个）
 const TOOLS: [Tool, string][] = [
   ['spawn', '⚑ 出生点'],
   ['altar', '🔥 祭坛'],
@@ -38,6 +40,8 @@ const TOOLS: [Tool, string][] = [
   ['by', '🟡 黄色按钮'],
   ['bb', '🔵 蓝色按钮'],
   ['ladder', '🪜 梯子'],
+  ['portal', '🌀 传送门'],
+  ['ob', '🟠 橙色按钮'],
   ['erase', '⌫ 擦除'],
 ];
 
@@ -72,6 +76,9 @@ export default function PlatjumpEditorPage() {
   const [by, setBy] = useState<CellSet>(() => toSet((init?.level.buttons ?? []).filter((b) => b.color === 'yellow').map((b) => b.pos)));
   const [bb, setBb] = useState<CellSet>(() => toSet((init?.level.buttons ?? []).filter((b) => b.color === 'blue').map((b) => b.pos)));
   const [ladders, setLadders] = useState<CellSet>(() => toSet(init?.level.ladders ?? []));
+  const [portalCells, setPortalCells] = useState<Cell[]>(init?.level.portals?.pos ?? []);
+  const [portalOpenDef, setPortalOpenDef] = useState(init?.level.portals?.open ?? true);
+  const [orangeBtn, setOrangeBtn] = useState<Cell | null>(init?.level.orangeButton ?? null);
   // 新放置的可开关平台使用的默认状态（放置后可逐格切换）
   const [tyOn, setTyOn] = useState(false);
   const [tbOn, setTbOn] = useState(false);
@@ -81,12 +88,21 @@ export default function PlatjumpEditorPage() {
   const [shareCode, setShareCode] = useState('');
   const [copied, setCopied] = useState(false);
 
-  // 数字键 1~9 快速选择摆件
+  // 数字键 1~6 选前 6 个摆件，Ctrl+数字选第 7 个及以后（Ctrl+1 = 第 7 个）
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       const n = Number(e.key);
-      if (n >= 1 && n <= TOOLS.length) setTool(TOOLS[n - 1][0]);
+      if (!n) return;
+      if (e.ctrlKey || e.metaKey) {
+        const idx = 6 + n - 1;
+        if (idx < TOOLS.length) {
+          e.preventDefault();
+          setTool(TOOLS[idx][0]);
+        }
+      } else if (n <= 6) {
+        setTool(TOOLS[n - 1][0]);
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -113,8 +129,10 @@ export default function PlatjumpEditorPage() {
         ...[...bb].map((k) => ({ pos: k.split(',').map(Number) as Cell, color: 'blue' as const })),
       ],
       ladders: [...ladders].map((k) => k.split(',').map(Number) as Cell),
+      portals: portalCells.length > 0 ? { pos: portalCells.map((c) => [...c] as Cell), open: portalOpenDef } : null,
+      orangeButton: orangeBtn,
     }),
-    [name, cols, rows, steps, spawn, altar, platforms, ty, tb, by, bb, ladders],
+    [name, cols, rows, steps, spawn, altar, platforms, ty, tb, by, bb, ladders, portalCells, portalOpenDef, orangeBtn],
   );
 
   const errors = validatePlatLevel(level);
@@ -176,6 +194,10 @@ export default function PlatjumpEditorPage() {
     if (tool === 'by' && by.has(k)) return delSet(setBy);
     if (tool === 'bb' && bb.has(k)) return delSet(setBb);
     if (tool === 'ladder' && ladders.has(k)) return delSet(setLadders);
+    if (tool === 'portal' && portalCells.some((c) => cellKey(c[0], c[1]) === k)) {
+      return setPortalCells((cs) => cs.filter((c) => cellKey(c[0], c[1]) !== k));
+    }
+    if (tool === 'ob' && orangeBtn && cellKey(orangeBtn[0], orangeBtn[1]) === k) return setOrangeBtn(null);
     // 2. 都没被选中：平台类优先
     if (platforms.has(k)) return delSet(setPlatforms);
     if (ty.has(k)) return delMap(setTy);
@@ -183,6 +205,10 @@ export default function PlatjumpEditorPage() {
     if (ladders.has(k)) return delSet(setLadders);
     if (by.has(k)) return delSet(setBy);
     if (bb.has(k)) return delSet(setBb);
+    if (portalCells.some((c) => cellKey(c[0], c[1]) === k)) {
+      return setPortalCells((cs) => cs.filter((c) => cellKey(c[0], c[1]) !== k));
+    }
+    if (orangeBtn && cellKey(orangeBtn[0], orangeBtn[1]) === k) return setOrangeBtn(null);
   };
 
   const applyTool = (x: number, y: number) => {
@@ -205,16 +231,50 @@ export default function PlatjumpEditorPage() {
       return (tool === 'ty' ? setTy : setTb)((m) => new Map(m).set(k, on));
     }
     // 按钮与平台 / 可开关平台 / 梯子可同格：放按钮保留它们，放它们时保留按钮
+    // 两个按钮不能同格：放黄蓝按钮时清掉橙色按钮
     if (tool === 'by' || tool === 'bb') {
       clearTile(k, { platform: true, toggle: true, ladder: true });
+      if (orangeBtn && cellKey(orangeBtn[0], orangeBtn[1]) === k) setOrangeBtn(null);
       return (tool === 'by' ? setBy : setBb)((s) => new Set(s).add(k));
     }
     if (tool === 'platform') {
       clearTile(k, { button: true });
       return setPlatforms((s) => new Set(s).add(k));
     }
-    // ladder
+    // 传送门：再点已放置的传送门取消；最多两个（可与平台、可开关平台、黄蓝按钮同格）
+    if (tool === 'portal') {
+      if (portalCells.some((c) => cellKey(c[0], c[1]) === k)) {
+        return setPortalCells((cs) => cs.filter((c) => cellKey(c[0], c[1]) !== k));
+      }
+      if (portalCells.length >= 2) return;
+      // 传送门不能与梯子、橙色按钮同格：放置时清掉它们
+      setLadders((s) => {
+        const ns = new Set(s);
+        ns.delete(k);
+        return ns;
+      });
+      if (orangeBtn && cellKey(orangeBtn[0], orangeBtn[1]) === k) setOrangeBtn(null);
+      return setPortalCells((cs) => [...cs, [x, y]]);
+    }
+    // 橙色按钮：再点取消；与平台、可开关平台、梯子可同格；不能与其他按钮、传送门同格
+    if (tool === 'ob') {
+      if (orangeBtn && cellKey(orangeBtn[0], orangeBtn[1]) === k) return setOrangeBtn(null);
+      setBy((s) => {
+        const ns = new Set(s);
+        ns.delete(k);
+        return ns;
+      });
+      setBb((s) => {
+        const ns = new Set(s);
+        ns.delete(k);
+        return ns;
+      });
+      setPortalCells((cs) => cs.filter((c) => cellKey(c[0], c[1]) !== k));
+      return setOrangeBtn([x, y]);
+    }
+    // ladder：传送门不能与梯子同格，放梯子时清掉传送门
     clearTile(k, { button: true });
+    setPortalCells((cs) => cs.filter((c) => cellKey(c[0], c[1]) !== k));
     setLadders((s) => new Set(s).add(k));
   };
 
@@ -235,6 +295,8 @@ export default function PlatjumpEditorPage() {
     }
     if (spawn && (spawn[0] >= newCols || spawn[1] >= newRows)) setSpawn(null);
     if (altar && (altar[0] >= newCols || altar[1] >= newRows)) setAltar(null);
+    setPortalCells((cs) => cs.filter(([x, y]) => x < newCols && y < newRows));
+    if (orangeBtn && (orangeBtn[0] >= newCols || orangeBtn[1] >= newRows)) setOrangeBtn(null);
   };
 
   const play = () => navigate('/platjump', { state: { level, test: true } });
@@ -266,6 +328,10 @@ export default function PlatjumpEditorPage() {
         {ladders.has(k) && <LadderTile cs={cs} top={!ladders.has(cellKey(x, y - 1))} />}
         {by.has(k) && <ButtonTile cs={cs} color="yellow" />}
         {bb.has(k) && <ButtonTile cs={cs} color="blue" />}
+        {orangeBtn && orangeBtn[0] === x && orangeBtn[1] === y && (
+          <ButtonTile cs={cs} color="orange" pressed={portalOpenDef} />
+        )}
+        {portalCells.some((c) => c[0] === x && c[1] === y) && <PortalTile cs={cs} open={portalOpenDef} />}
       </>
     );
   };
@@ -286,24 +352,25 @@ export default function PlatjumpEditorPage() {
         <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
           {/* 左：场景 */}
           <div>
-            <div className="mb-3 flex flex-wrap gap-1.5">
+            {/* 工具栏：6 列网格，第二行（Ctrl+数字）与第一行上下对齐 */}
+            <div className="mb-3 grid grid-cols-6 gap-1.5">
               {TOOLS.map(([t, label], i) => (
                 <button
                   key={t}
                   onClick={() => setTool(t)}
-                  className={`border px-3 py-1.5 text-xs ${
+                  className={`border px-1 py-1.5 text-xs ${
                     tool === t
                       ? 'border-[#d8b44a]/70 bg-[#d8b44a]/10 text-[#e8d48a]'
                       : 'border-neutral-700 text-neutral-400 hover:border-neutral-500'
                   }`}
                 >
-                  <span className="mr-1 text-neutral-500">{i + 1}</span>
+                  <span className="mr-0.5 text-neutral-500">{i < 6 ? i + 1 : `^${i - 5}`}</span>
                   {label}
                 </button>
               ))}
             </div>
             <div className="mb-4 text-xs text-neutral-600">
-              点击格子放置，右键直接擦除；梯子按格绘制（底部要有平台）；按钮可与平台、可开关平台、梯子同格
+              数字键 1~6 选前 6 个，Ctrl+1~{TOOLS.length - 6} 选其余的；点击格子放置，右键直接擦除；传送门必须放两个且放在平台之上，可与平台、黄蓝按钮同格；橙色按钮需要先放传送门
             </div>
 
             <div className="inline-block border border-[#2a3a58] bg-gradient-to-b from-[#101a30] to-[#0a1120] p-4">
@@ -417,6 +484,25 @@ export default function PlatjumpEditorPage() {
               </div>
               <div className="mt-1.5 text-xs text-neutral-600">用对应工具点击已放置的平台，可单独切换该格的默认状态</div>
             </div>
+
+            {portalCells.length > 0 && (
+              <div>
+                <label className="mb-1.5 block text-xs tracking-widest text-neutral-500">传送门默认状态</label>
+                <button
+                  onClick={() => {
+                    dirty();
+                    setPortalOpenDef((o) => !o);
+                  }}
+                  className="flex items-center gap-2 border border-neutral-700 px-4 py-2 text-sm text-neutral-300 hover:border-neutral-500"
+                >
+                  <span className="inline-block h-3.5 w-3.5" style={{ background: '#f08c3c' }} />
+                  传送门：{portalOpenDef ? '开' : '关'}
+                </button>
+                <div className="mt-1.5 text-xs text-neutral-600">
+                  已放置 {portalCells.length}/2 个传送门；{orangeBtn ? '有橙色按钮：传送门可再次激活' : '无橙色按钮：传送门为一次性'}
+                </div>
+              </div>
+            )}
 
             {/* 校验 + 试玩 + 生成 */}
             <div className="border-t border-neutral-800 pt-5">

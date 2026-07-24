@@ -44,11 +44,14 @@ export function ToggleTile({ cs, color, on }: { cs: number; color: ToggleColor; 
   );
 }
 
-/** 按钮：半圆的上半，贴紧格子底边 */
-export function ButtonTile({ cs, color }: { cs: number; color: ToggleColor }) {
-  const c = TOGGLE_COLORS[color];
+/** 橙色（传送门按钮）配色 */
+const ORANGE_COLOR = { main: '#f08c3c', light: '#f8bc82', dim: 'rgba(240,140,60,0.16)' };
+
+/** 按钮：半圆的上半，贴紧格子底边；pressed = 已按下（只露出四分之一高度） */
+export function ButtonTile({ cs, color, pressed = false }: { cs: number; color: ToggleColor | 'orange'; pressed?: boolean }) {
+  const c = color === 'orange' ? { ...ORANGE_COLOR, name: '橙色' } : TOGGLE_COLORS[color];
   const w = cs * 0.56;
-  const h = w / 2;
+  const h = pressed ? w / 4 : w / 2;
   return (
     <div style={abs}>
       <div
@@ -64,6 +67,34 @@ export function ButtonTile({ cs, color }: { cs: number; color: ToggleColor }) {
           borderTopLeftRadius: w / 2,
           borderTopRightRadius: w / 2,
           boxShadow: `0 0 ${cs / 5}px ${c.main}66`,
+          transition: 'height 0.1s',
+        }}
+      />
+    </div>
+  );
+}
+
+/** 传送门：顶部半圆的拱门；开 = 亮橙色发光，关 = 灰暗 */
+export function PortalTile({ cs, open }: { cs: number; open: boolean }) {
+  const w = cs * 0.72;
+  const h = cs * 0.94;
+  const color = open ? '#f0a03c' : '#57503f';
+  return (
+    <div style={abs}>
+      <div
+        style={{
+          position: 'absolute',
+          left: (cs - w) / 2,
+          bottom: 0,
+          width: w,
+          height: h,
+          border: `3px solid ${color}`,
+          borderBottom: 'none',
+          borderTopLeftRadius: w / 2,
+          borderTopRightRadius: w / 2,
+          background: open ? 'rgba(240,160,60,0.28)' : 'rgba(87,80,63,0.18)',
+          boxShadow: open ? `0 0 ${cs / 3}px rgba(240,160,60,0.75), inset 0 0 ${cs / 4}px rgba(240,160,60,0.5)` : 'none',
+          transition: 'box-shadow 0.15s, border-color 0.15s, background 0.15s',
         }}
       />
     </div>
