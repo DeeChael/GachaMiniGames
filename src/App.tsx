@@ -8,6 +8,8 @@ import PlatjumpPage from './games/platjump/PlatjumpPage';
 import PlatjumpEditorPage from './games/platjump/EditorPage';
 import ColorfillPage from './games/colorfill/ColorfillPage';
 import ColorfillEditorPage from './games/colorfill/EditorPage';
+import SrPuzzlePage from './games/sr_puzzle/SrPuzzlePage';
+import SrPuzzleEditorPage from './games/sr_puzzle/EditorPage';
 
 // 顶栏菜单：按二游分组，选项显示游戏 logo，悬停下拉显示小游戏名称
 interface NavGame {
@@ -28,7 +30,10 @@ const NAV_MENU: NavGame[] = [
   {
     game: '崩坏：星穹铁道',
     logo: `${import.meta.env.BASE_URL}logos/starrail.png`,
-    items: [{ name: '黄金替罪羊', path: '/platjump' }],
+    items: [
+      { name: '黄金替罪羊', path: '/platjump' },
+      { name: '预言算碑', path: '/sr_puzzle' },
+    ],
   },
   {
     game: '鸣潮',
@@ -48,13 +53,14 @@ const THEMES = {
 
 export default function App() {
   const { pathname } = useLocation();
-  const theme = pathname.startsWith('/platjump')
-    ? THEMES.starrail
-    : pathname.startsWith('/colorfill')
-      ? THEMES.wuwa
-      : pathname === '/'
-        ? THEMES.home
-        : THEMES.endfield;
+  const theme =
+    pathname.startsWith('/platjump') || pathname.startsWith('/sr_puzzle')
+      ? THEMES.starrail
+      : pathname.startsWith('/colorfill')
+        ? THEMES.wuwa
+        : pathname === '/'
+          ? THEMES.home
+          : THEMES.endfield;
 
   return (
     <div className="min-h-screen text-neutral-300" style={{ background: theme.bg }}>
@@ -115,6 +121,8 @@ export default function App() {
         <Route path="/platjump/editor" element={<PlatjumpEditorPage />} />
         <Route path="/colorfill" element={<ColorfillPage />} />
         <Route path="/colorfill/editor" element={<ColorfillEditorPage />} />
+        <Route path="/sr_puzzle" element={<SrPuzzlePage />} />
+        <Route path="/sr_puzzle/editor" element={<SrPuzzleEditorPage />} />
       </Routes>
     </div>
   );

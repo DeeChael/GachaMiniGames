@@ -4,6 +4,7 @@ import { decodeLevel } from '../games/puzzle/shareCode';
 import { decodeBalloonLevel } from '../games/balloon/shareCode';
 import { decodePlatLevel } from '../games/platjump/shareCode';
 import { decodeFillLevel } from '../games/colorfill/shareCode';
+import { decodeSrLevel } from '../games/sr_puzzle/shareCode';
 
 interface GameEntry {
   name: string;
@@ -33,6 +34,13 @@ const GAMES: GameEntry[] = [
     game: '崩坏：星穹铁道',
     logo: `${import.meta.env.BASE_URL}logos/starrail.png`,
     path: '/platjump',
+    ready: true,
+  },
+  {
+    name: '预言算碑',
+    game: '崩坏：星穹铁道',
+    logo: `${import.meta.env.BASE_URL}logos/starrail.png`,
+    path: '/sr_puzzle',
     ready: true,
   },
   {
@@ -93,7 +101,16 @@ export default function Home() {
       }
       return;
     }
-    setCodeError('无法识别的分享码（支持 EPZ2_ / EBL1_ / SPJ2_ / WCF1_ 开头）');
+    if (v.startsWith('SPZ1_')) {
+      try {
+        decodeSrLevel(v);
+        navigate(`/sr_puzzle?code=${encodeURIComponent(v)}`);
+      } catch (e) {
+        setCodeError((e as Error).message);
+      }
+      return;
+    }
+    setCodeError('无法识别的分享码（支持 EPZ2_ / EBL1_ / SPJ2_ / WCF1_ / SPZ1_ 开头）');
   };
 
   return (

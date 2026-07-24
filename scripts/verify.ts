@@ -15,6 +15,9 @@ import { BUILTIN_LEVELS as FILL_LEVELS } from '../src/games/colorfill/levels';
 import { decodeFillLevel, encodeFillLevel } from '../src/games/colorfill/shareCode';
 import { validateFillLevel } from '../src/games/colorfill/types';
 import { solvableWithinSteps } from '../src/games/colorfill/solver';
+import { BUILTIN_LEVELS as SR_LEVELS } from '../src/games/sr_puzzle/levels';
+import { decodeSrLevel, encodeSrLevel } from '../src/games/sr_puzzle/shareCode';
+import { validateSrLevel } from '../src/games/sr_puzzle/types';
 import {
   cellKey as bCellKey,
   netLift,
@@ -161,6 +164,16 @@ for (const lv of FILL_LEVELS) {
   const roundtrip = canonical(back) === canonical(lv);
   console.log(`溢彩画「${lv.name}」: ${errs.length ? 'INVALID ' + errs.join(',') : 'valid'} solvable=${ok} (${Date.now() - t0}ms) 分享码往返=${roundtrip ? 'OK' : 'MISMATCH'}`);
   if (errs.length || !ok || !roundtrip) fail++;
+}
+
+// 7. 预言算碑内置关卡：结构合法 + 目标图案非空 + 打散后不同 + 分享码往返
+for (const lv of SR_LEVELS) {
+  const errs = validateSrLevel(lv);
+  const code = encodeSrLevel(lv);
+  const back = decodeSrLevel(code);
+  const roundtrip = canonical(back) === canonical(lv);
+  console.log(`预言算碑「${lv.name}」: ${errs.length ? 'INVALID ' + errs.join(',') : 'valid'} 分享码长度=${code.length} 往返=${roundtrip ? 'OK' : 'MISMATCH'}`);
+  if (errs.length || !roundtrip) fail++;
 }
 
 console.log(fail === 0 ? '\n全部通过 ✓' : `\n失败 ${fail} 项 ✗`);
