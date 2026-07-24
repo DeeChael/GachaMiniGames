@@ -2,12 +2,14 @@
 // 预言算碑 —— 棋盘组件（SVG）
 // 16×16 格点（小菱形标识），线框 step=2（9 根线），
 // 圆形裁切（直径 = 棋盘边长）；拼图用 evenodd 路径一次绘出，
-// 重叠区域自动抵消为空；目标图案以 30% 黄色垫在拼图下方
+// 重叠区域实时抵消为空；目标图案以 30% 黄色垫在拼图下方。
+// 拖拽中的拼图也参与合成，相交镂空效果实时可见；
+// 编辑器摆放步可在拖动时按 R 旋转拼图
 // ============================================================
 
 import { forwardRef, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import type { PlacedPiece, Pt, Rot } from './types';
-import { BOARD, compositePolys, piecePoly, pointInPoly, rotatedShape, shapeById } from './types';
+import { BOARD, compositePolys, fitsOnBoard, isRotatable, pieceHitsCorner, piecePoly, pointInPoly, rotatedShape, shapeById } from './types';
 
 const PAD = 1.1; // 圆环装饰预留的边距（格）
 const VIEW = BOARD + PAD * 2;
@@ -21,8 +23,8 @@ export interface TargetPiece {
 }
 
 export interface BoardHandle {
-  /** 从任意指针位置开始对指定拼图进行拖拽（用于从形状库拖入） */
-  beginDrag: (id: string, clientX: number, clientY: number) => void;
+  /** 从任意指针位置开始拖拽指定拼图；center 时让拼图居中跟随指针（用于从形状库拖入） */
+  beginDrag: (id: string, clientX: number, clientY: number, center?: boolean) => void;
 }
 
 interface DragState {
@@ -31,6 +33,7 @@ interface DragState {
   offY: number;
   fx: number; // 当前浮动位置（格，未取整）
   fy: number;
+  rot: Rot; // 拖拽中的旋转状态（按 R 改变）
 }
 
 const polysToPath = (polys: Pt[][]) =>
@@ -41,15 +44,16 @@ const SrBoard = forwardRef<
   {
     size: number; // 显示边长（px）
     pieces: PlacedPiece[];
-    target?: TargetPiece[]; // 30% 黄色目标图案
+    target?: TargetPiece[]; // 黄色目标图案（默认 30% 透明度垫在拼图下方）
+    targetOpacity?: number; // 目标图案填充透明度，默认 0.3
     interactive?: boolean; // 可拖拽
+    rotatable?: boolean; // 拖拽时可按 R 旋转（仅编辑器摆放步）
+    restrictCorners?: boolean; // 松开时若与四角 2×2 禁区相交，视为非法移动并回退
     showOutlines?: boolean; // 显示每块拼图的描边（目标预览时关闭）
-    selectedId?: string | null;
-    onSelect?: (id: string | null) => void;
-    onDrop?: (id: string, x: number, y: number, inside: boolean) => void;
+    onDrop?: (id: string, x: number, y: number, rot: Rot, inside: boolean) => void;
   }
 >(function SrBoard(
-  { size, pieces, target, interactive = false, showOutlines = true, selectedId, onSelect, onDrop },
+  { size, pieces, target, targetOpacity = 0.3, interactive = false, rotatable = false, restrictCorners = false, showOutlines = true, onDrop },
   ref,
 ) {
   const uid = useId().replace(/:/g, '');
@@ -69,13 +73,28 @@ const SrBoard = forwardRef<
     setDrag(d);
   };
 
+  const dimsOf = (shape: string, rot: Rot) => rotatedShape(shapeById(shape)!, rot);
+
+  // 让拼图始终完整留在棋盘内（跟随指针滑到边缘为止）
+  const clampDrag = (d: DragState): DragState => {
+    const piece = pieces.find((p) => p.id === d.id);
+    if (!piece) return d;
+    const { w, h } = dimsOf(piece.shape, d.rot);
+    return {
+      ...d,
+      fx: Math.max(0, Math.min(BOARD - w, d.fx)),
+      fy: Math.max(0, Math.min(BOARD - h, d.fy)),
+    };
+  };
+
   // 当前挂载的 window 监听，用 ref 保证移除时引用一致
-  const listenersRef = useRef<{ move: (e: PointerEvent) => void; up: (e: PointerEvent) => void } | null>(null);
+  const listenersRef = useRef<{ move: (e: PointerEvent) => void; up: (e: PointerEvent) => void; key: (e: KeyboardEvent) => void } | null>(null);
 
   const removeListeners = () => {
     if (listenersRef.current) {
       window.removeEventListener('pointermove', listenersRef.current.move);
       window.removeEventListener('pointerup', listenersRef.current.up);
+      window.removeEventListener('keydown', listenersRef.current.key);
       listenersRef.current = null;
     }
   };
@@ -88,30 +107,51 @@ const SrBoard = forwardRef<
     const piece = pieces.find((p) => p.id === d.id);
     const s = piece && shapeById(piece.shape);
     if (!piece || !s) return;
-    const { w, h } = rotatedShape(s, piece.rot);
+    const { w, h } = dimsOf(piece.shape, d.rot);
     const x = Math.max(0, Math.min(BOARD - w, Math.round(d.fx)));
     const y = Math.max(0, Math.min(BOARD - h, Math.round(d.fy)));
+    // 与四角 2×2 禁区（圆形裁切后看不见的方格）相交：非法移动，回退到原位置
+    if (restrictCorners && fitsOnBoard(piece.shape, d.rot, x, y) && pieceHitsCorner(piece.shape, d.rot, x, y)) return;
     const [gx, gy] = toGrid(clientX, clientY);
     const inside = gx >= -PAD && gx <= BOARD + PAD && gy >= -PAD && gy <= BOARD + PAD;
-    onDrop?.(d.id, x, y, inside);
+    onDrop?.(d.id, x, y, d.rot, inside);
   };
 
-  const beginDragAt = (id: string, clientX: number, clientY: number) => {
+  const beginDragAt = (id: string, clientX: number, clientY: number, center = false) => {
     const piece = pieces.find((p) => p.id === id);
-    if (!piece) return;
+    const s = piece && shapeById(piece.shape);
+    if (!piece || !s) return;
     const [gx, gy] = toGrid(clientX, clientY);
-    setDragBoth({ id, offX: gx - piece.x, offY: gy - piece.y, fx: piece.x, fy: piece.y });
+    const { w, h } = dimsOf(piece.shape, piece.rot);
+    // center：让拼图中心对准指针（形状库拖入）；否则保持抓取点偏移
+    const offX = center ? w / 2 : gx - piece.x;
+    const offY = center ? h / 2 : gy - piece.y;
+    setDragBoth(clampDrag({ id, offX, offY, fx: gx - offX, fy: gy - offY, rot: piece.rot }));
     removeListeners();
     const move = (e: PointerEvent) => {
       const d = dragRef.current;
       if (!d) return;
       const [mx, my] = toGrid(e.clientX, e.clientY);
-      setDragBoth({ ...d, fx: mx - d.offX, fy: my - d.offY });
+      setDragBoth(clampDrag({ ...d, fx: mx - d.offX, fy: my - d.offY }));
     };
     const up = (e: PointerEvent) => endDrag(e.clientX, e.clientY);
-    listenersRef.current = { move, up };
+    // 拖动时按 R 旋转：保持抓取点在拼图内的相对位置不变；旋转后重合的图形（正方形、菱形）不可旋转
+    const key = (e: KeyboardEvent) => {
+      if (!rotatable || (e.key !== 'r' && e.key !== 'R')) return;
+      const d = dragRef.current;
+      const p = d && pieces.find((q) => q.id === d.id);
+      if (!d || !p || !isRotatable(p.shape)) return;
+      const rot = ((d.rot + 1) % 4) as Rot;
+      const oldDims = dimsOf(p.shape, d.rot);
+      const newDims = dimsOf(p.shape, rot);
+      const offX2 = (d.offX / oldDims.w) * newDims.w;
+      const offY2 = (d.offY / oldDims.h) * newDims.h;
+      setDragBoth(clampDrag({ ...d, rot, offX: offX2, offY: offY2, fx: d.fx + d.offX - offX2, fy: d.fy + d.offY - offY2 }));
+    };
+    listenersRef.current = { move, up, key };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
+    window.addEventListener('keydown', key);
   };
 
   // 卸载时清理 window 监听
@@ -135,30 +175,32 @@ const SrBoard = forwardRef<
     return { linesPath: lines, dotsPath: dots };
   }, []);
 
-  const visible = pieces.filter((p) => p.id !== drag?.id);
-  const dragPiece = drag ? pieces.find((p) => p.id === drag.id) : null;
+  // 拖拽中的拼图以浮动位置参与合成，相交镂空实时可见
+  const live = drag
+    ? pieces.map((p) => (p.id === drag.id ? { ...p, x: drag.fx, y: drag.fy, rot: drag.rot } : p))
+    : pieces;
 
-  const compositePath = polysToPath(compositePolys(visible));
+  const compositePath = polysToPath(compositePolys(live));
   const targetPath = target ? polysToPath(compositePolys(target)) : '';
-  const dragPath = dragPiece && drag ? polysToPath(compositePolys([{ ...dragPiece, x: drag.fx, y: drag.fy }])) : '';
+  const dragPoly = drag
+    ? (() => {
+        const p = pieces.find((q) => q.id === drag.id);
+        return p ? piecePoly(p.shape, drag.rot, drag.fx, drag.fy) : null;
+      })()
+    : null;
 
   // 点按拾取：从最上层（数组末尾）开始找包含指针的拼图
   const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || !interactive) return;
     const [gx, gy] = toGrid(e.clientX, e.clientY);
-    let hit: PlacedPiece | null = null;
     for (let i = pieces.length - 1; i >= 0; i--) {
       const p = pieces[i];
       const poly = piecePoly(p.shape, p.rot, p.x, p.y);
       if (poly && pointInPoly(gx, gy, poly)) {
-        hit = p;
-        break;
+        e.preventDefault();
+        beginDragAt(p.id, e.clientX, e.clientY);
+        return;
       }
-    }
-    onSelect?.(hit?.id ?? null);
-    if (interactive && hit) {
-      e.preventDefault();
-      beginDragAt(hit.id, e.clientX, e.clientY);
     }
   };
 
@@ -195,37 +237,38 @@ const SrBoard = forwardRef<
         <path d={linesPath} stroke="#a8873c" strokeWidth={0.035} opacity={0.4} fill="none" />
         <path d={dotsPath} fill="#c8a44c" opacity={0.55} />
 
-        {/* 目标图案：30% 黄色，垫在拼图下方 */}
-        {targetPath && <path d={targetPath} fill="#f2c14e" opacity={0.3} fillRule="evenodd" />}
+        {/* 目标图案：黄色填充，垫在拼图下方 */}
+        {targetPath && <path d={targetPath} fill="#f2c14e" opacity={targetOpacity} fillRule="evenodd" />}
 
-        {/* 拼图 XOR 合成：evenodd 让重叠部分显示为空 */}
+        {/* 拼图 XOR 合成：evenodd 让重叠部分实时显示为空 */}
         {compositePath && (
           <path d={compositePath} fill={`url(#piece${uid})`} fillRule="evenodd" stroke="#ffe9b0" strokeWidth={0.03} strokeOpacity={0.35} />
         )}
 
         {/* 每块拼图的描边，便于辨认个体与重叠边界 */}
         {showOutlines &&
-          visible.map((p) => {
+          live.map((p) => {
             const poly = piecePoly(p.shape, p.rot, p.x, p.y);
             if (!poly) return null;
-            const sel = p.id === selectedId;
+            const isDragged = p.id === drag?.id;
             return (
               <path
                 key={p.id}
                 d={polysToPath([poly])}
                 fill="none"
-                stroke={sel ? '#fff3c8' : '#ffe1a0'}
-                strokeWidth={sel ? 0.09 : 0.045}
-                strokeOpacity={sel ? 0.95 : 0.5}
+                stroke={isDragged ? '#fff3c8' : '#ffe1a0'}
+                strokeWidth={isDragged ? 0.09 : 0.045}
+                strokeOpacity={isDragged ? 0.95 : 0.5}
               />
             );
           })}
 
-        {/* 拖拽中的拼图 */}
-        {dragPath && (
-          <path d={dragPath} fill={`url(#piece${uid})`} fillOpacity={0.9} stroke="#fff2c0" strokeWidth={0.07} strokeOpacity={0.9} />
-        )}
       </g>
+
+      {/* 拖拽中的拼图高亮描边：放在裁切层之外，拖出圆形视野（编辑摆放步）时仍可见 */}
+      {dragPoly && (
+        <path d={polysToPath([dragPoly])} fill="none" stroke="#ffffff" strokeWidth={0.06} strokeOpacity={0.9} strokeDasharray="0.2 0.14" />
+      )}
     </svg>
   );
 });

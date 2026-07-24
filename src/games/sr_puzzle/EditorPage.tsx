@@ -15,8 +15,8 @@ import {
   SHAPES,
   compositeKey,
   compositePolys,
-  rotatedShape,
   shapeById,
+  validateCorners,
   validatePlacements,
   validateSrLevel,
 } from './types';
@@ -24,14 +24,6 @@ import SrBoard, { type BoardHandle } from './Board';
 import { encodeSrLevel } from './shareCode';
 
 type Step = 'arrange' | 'scatter';
-
-const clampPos = (shape: string, rot: Rot, x: number, y: number) => {
-  const { w, h } = rotatedShape(shapeById(shape)!, rot);
-  return {
-    x: Math.max(0, Math.min(BOARD - w, x)),
-    y: Math.max(0, Math.min(BOARD - h, y)),
-  };
-};
 
 export default function SrPuzzleEditorPage() {
   const navigate = useNavigate();
@@ -42,13 +34,10 @@ export default function SrPuzzleEditorPage() {
   const [name, setName] = useState('我的关卡');
   const [pieces, setPieces] = useState<PlacedPiece[]>([]);
   const [snapshot, setSnapshot] = useState<PlacedPiece[] | null>(null); // 摆放好的目标位置
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [shareCode, setShareCode] = useState('');
   const [copied, setCopied] = useState(false);
 
-  const selected = pieces.find((p) => p.id === selectedId) ?? null;
-
-  // 从形状库拖入：新建拼图并立刻进入拖拽
+  // 从形状库拖入：新建拼图并立刻进入拖拽（图形居中跟随鼠标）
   const addFromLibrary = (shapeId: string, e: React.PointerEvent) => {
     if (pieces.length >= MAX_PIECES) return;
     const s = shapeById(shapeId)!;
@@ -57,44 +46,28 @@ export default function SrPuzzleEditorPage() {
     const y = Math.round((BOARD - s.h) / 2);
     const piece: PlacedPiece = { id, shape: shapeId, rot: 0, x, y };
     setPieces((ps) => [...ps, piece]);
-    setSelectedId(id);
     setShareCode('');
     // 等棋盘重渲染出新拼图后再接管拖拽
-    requestAnimationFrame(() => boardRef.current?.beginDrag(id, e.clientX, e.clientY));
+    requestAnimationFrame(() => boardRef.current?.beginDrag(id, e.clientX, e.clientY, true));
   };
 
-  const onDrop = (id: string, x: number, y: number, inside: boolean) => {
+  const onDrop = (id: string, x: number, y: number, rot: Rot, inside: boolean) => {
     if (!inside) {
       // 摆放步：拖出棋盘即删除；打散步：拖出则回到原位
       if (step === 'arrange') {
         setPieces((ps) => ps.filter((p) => p.id !== id));
-        setSelectedId((sel) => (sel === id ? null : sel));
         setShareCode('');
       }
       return;
     }
-    setPieces((ps) => ps.map((p) => (p.id === id ? { ...p, x, y } : p)));
+    setPieces((ps) => ps.map((p) => (p.id === id ? { ...p, x, y, rot } : p)));
     setShareCode('');
   };
 
-  const rotateSelected = () => {
-    if (!selected) return;
-    const rot = ((selected.rot + 1) % 4) as Rot;
-    const { x, y } = clampPos(selected.shape, rot, selected.x, selected.y);
-    setPieces((ps) => ps.map((p) => (p.id === selected.id ? { ...p, rot, x, y } : p)));
-    setShareCode('');
-  };
-
-  const deleteSelected = () => {
-    if (!selected) return;
-    setPieces((ps) => ps.filter((p) => p.id !== selected.id));
-    setSelectedId(null);
-    setShareCode('');
-  };
-
-  // 第一步校验：结构合法 + 目标图案非空
+  // 第一步校验：结构合法 + 不碰四角禁区 + 目标图案非空
   const arrangeErrors = useMemo(() => {
     const errs = validatePlacements(pieces);
+    errs.push(...validateCorners(pieces));
     if (errs.length === 0 && !compositeKey(compositePolys(pieces)).includes('1')) {
       errs.push('目标图案为空，至少让拼图覆盖一格');
     }
@@ -109,14 +82,12 @@ export default function SrPuzzleEditorPage() {
 
   const goScatter = () => {
     setSnapshot(pieces.map((p) => ({ ...p })));
-    setSelectedId(null);
     setStep('scatter');
     setShareCode('');
   };
 
   const goArrange = () => {
     if (snapshot) setPieces(snapshot.map((p) => ({ ...p })));
-    setSelectedId(null);
     setStep('arrange');
     setShareCode('');
   };
@@ -168,8 +139,8 @@ export default function SrPuzzleEditorPage() {
           <div>
             <div className="mb-3 text-sm text-neutral-500">
               {step === 'arrange'
-                ? '从右侧形状库把拼图拖入棋盘；点击拼图选中后可旋转 / 删除；重叠部分会抵消为空'
-                : '拖动拼图打散开局位置（不可旋转）；棋盘上 30% 的黄色是玩家要拼出的目标图案'}
+                ? '从右侧形状库把拼图拖入棋盘；拖动时按 R 旋转，拖出棋盘即删除'
+                : '拖动拼图打散开局位置（不可旋转；四角 2×2 区域放不进去）'}
             </div>
             <SrBoard
               ref={boardRef}
@@ -177,27 +148,26 @@ export default function SrPuzzleEditorPage() {
               pieces={pieces}
               target={step === 'scatter' && snapshot ? snapshot : undefined}
               interactive
-              selectedId={selectedId}
-              onSelect={step === 'arrange' ? setSelectedId : undefined}
+              rotatable={step === 'arrange'}
+              restrictCorners={step === 'scatter'}
               onDrop={onDrop}
             />
-            {step === 'arrange' && selected && (
-              <div className="mt-4 flex items-center gap-3">
-                <span className="text-sm text-neutral-400">
-                  已选中：{shapeById(selected.shape)?.name}
-                </span>
-                <button onClick={rotateSelected} className="border border-neutral-600 px-4 py-2 text-sm text-neutral-200 hover:border-neutral-400">
-                  ⟳ 旋转 90°
-                </button>
-                <button onClick={deleteSelected} className="border border-red-900/70 px-4 py-2 text-sm text-red-300 hover:border-red-600">
-                  ✕ 删除
-                </button>
-              </div>
-            )}
           </div>
 
-          {/* 右：形状库 / 步骤与分享 */}
+          {/* 右：关卡名称 / 形状库 / 步骤与分享 */}
           <div className="space-y-6">
+            <div>
+              <label className="mb-1.5 block text-xs tracking-widest text-neutral-500">关卡名称</label>
+              <input
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value.slice(0, 24));
+                  setShareCode('');
+                }}
+                className="w-full border border-neutral-800 bg-[#141a28] px-4 py-2.5 text-base outline-none focus:border-[#e8c268]/50"
+              />
+            </div>
+
             {step === 'arrange' && (
               <div>
                 <label className="mb-1.5 block text-xs tracking-widest text-neutral-500">
@@ -228,18 +198,6 @@ export default function SrPuzzleEditorPage() {
                 </div>
               </div>
             )}
-
-            <div>
-              <label className="mb-1.5 block text-xs tracking-widest text-neutral-500">关卡名称</label>
-              <input
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value.slice(0, 24));
-                  setShareCode('');
-                }}
-                className="w-full border border-neutral-800 bg-[#141a28] px-4 py-2.5 text-base outline-none focus:border-[#e8c268]/50"
-              />
-            </div>
 
             <div className="border-t border-neutral-800 pt-5">
               {step === 'arrange' ? (

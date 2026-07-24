@@ -6,7 +6,7 @@
 
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
-import type { PlacedPiece, SrLevel } from './types';
+import type { PlacedPiece, Rot, SrLevel } from './types';
 import { compositeKey, compositePolys } from './types';
 import SrBoard from './Board';
 import { BUILTIN_LEVELS } from './levels';
@@ -40,9 +40,9 @@ export function SrPuzzleGame({
     setWon(false);
   };
 
-  const onDrop = (id: string, x: number, y: number, inside: boolean) => {
+  const onDrop = (id: string, x: number, y: number, rot: Rot, inside: boolean) => {
     if (won || !inside) return;
-    const next = pieces.map((p) => (p.id === id ? { ...p, x, y } : p));
+    const next = pieces.map((p) => (p.id === id ? { ...p, x, y, rot } : p));
     setPieces(next);
     if (compositeKey(compositePolys(next)) === targetKey) setWon(true);
   };
@@ -69,15 +69,15 @@ export function SrPuzzleGame({
       </div>
 
       <div className="flex flex-wrap items-center justify-center gap-10">
-        {/* 左：小一号棋盘展示目标图案 */}
+        {/* 左：小一号棋盘展示目标图案（与右侧 30% 提示同款写法，填充 100%，不显示分块线框） */}
         <div className="flex flex-col items-center gap-4">
           <div className="text-lg tracking-[0.2em] text-[#e8c268]">{level.name}</div>
-          <SrBoard size={250} pieces={target.map((p, i) => ({ ...p, id: `t${i}` }))} showOutlines={false} />
+          <SrBoard size={250} pieces={[]} target={target} targetOpacity={1} />
           <div className="text-xs text-neutral-500">目标图案</div>
         </div>
 
-        {/* 右：主棋盘（目标图案以 30% 黄色垫在拼图下方） */}
-        <SrBoard size={560} pieces={pieces} target={target} interactive={!won} onDrop={onDrop} />
+        {/* 右：主棋盘（目标图案以 30% 黄色垫在拼图下方，四角 2×2 禁区放不进去） */}
+        <SrBoard size={560} pieces={pieces} target={target} interactive={!won} restrictCorners onDrop={onDrop} />
       </div>
 
       {/* 胜利遮罩 */}
@@ -151,7 +151,7 @@ export default function SrPuzzlePage() {
           <div className="text-xs tracking-[0.3em] text-neutral-500">// 崩坏：星穹铁道</div>
           <h1 className="mt-2 text-3xl font-medium text-neutral-100">预言算碑</h1>
           <p className="mt-3 text-base text-neutral-500">
-            拖动棋盘上的拼图碎片，拼出左侧的目标图案。拼图之间可以重叠：重叠部分会相互抵消显示为空，再压上一块又会重新显现
+            拖动棋盘上的拼图碎片，拼出左侧的目标图案。拼图之间可以重叠：重叠部分会相互抵消显示为空，再压上一块又会重新显现。拼图不能放入四角 2×2 的被裁切区域
           </p>
         </div>
 

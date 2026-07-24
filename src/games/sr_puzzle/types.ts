@@ -14,6 +14,8 @@ export interface Shape {
   w: number;
   h: number;
   points: Pt[];
+  /** 是否可以旋转，默认 true；旋转 90° 后完全重合的图形（正方形、菱形）为 false */
+  rotatable?: boolean;
 }
 
 // 形状列表来自 references/starrail-puzzle/puzzle.md，固定不可自定义
@@ -21,15 +23,19 @@ export interface Shape {
 // 与名称矛盾，这里按名称取完整正方形
 export const SHAPES: Shape[] = [
   { id: 'tri1', name: '三角形 1', w: 4, h: 2, points: [[2, 0], [0, 2], [4, 2]] },
-  { id: 'sq1', name: '正方形 1', w: 4, h: 4, points: [[0, 0], [4, 0], [4, 4], [0, 4]] },
+  { id: 'sq1', name: '正方形 1', w: 4, h: 4, points: [[0, 0], [4, 0], [4, 4], [0, 4]], rotatable: false },
   { id: 'tri2', name: '三角形 2', w: 4, h: 4, points: [[0, 0], [0, 4], [4, 0]] },
-  { id: 'dia1', name: '菱形 1', w: 4, h: 4, points: [[2, 0], [0, 2], [2, 4], [4, 2]] },
-  { id: 'dia2', name: '菱形 2', w: 6, h: 6, points: [[3, 0], [0, 3], [3, 6], [6, 3]] },
+  { id: 'dia1', name: '菱形 1', w: 4, h: 4, points: [[2, 0], [0, 2], [2, 4], [4, 2]], rotatable: false },
+  { id: 'dia2', name: '菱形 2', w: 6, h: 6, points: [[3, 0], [0, 3], [3, 6], [6, 3]], rotatable: false },
   { id: 'tri3', name: '三角形 3', w: 6, h: 3, points: [[3, 0], [0, 3], [6, 3]] },
   { id: 'trap1', name: '梯形 1', w: 4, h: 6, points: [[2, 0], [0, 2], [0, 6], [4, 2]] },
+  { id: 'sq2', name: '正方形 2', w: 6, h: 6, points: [[0, 0], [6, 0], [6, 6], [0, 6]], rotatable: false },
 ];
 
 export const shapeById = (id: string): Shape | undefined => SHAPES.find((s) => s.id === id);
+
+/** 形状是否可旋转（默认可旋转） */
+export const isRotatable = (id: string): boolean => shapeById(id)?.rotatable !== false;
 
 /** 棋盘边长（格），固定 16×16 */
 export const BOARD = 16;
@@ -137,12 +143,54 @@ export function compositeKey(polys: Pt[][]): string {
   return bits.join('');
 }
 
-/** 拼图摆放是否超出棋盘，返回 clamp 后的坐标范围供参考 */
+/** 拼图摆放是否超出棋盘：位置为整数且整个包围盒在 16×16 内 */
 export function fitsOnBoard(shape: string, rot: Rot, x: number, y: number): boolean {
   const s = shapeById(shape);
   if (!s) return false;
   const { w, h } = rotatedShape(s, rot);
   return Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x + w <= BOARD && y + h <= BOARD;
+}
+
+/** 四角禁区：圆形裁切后四角的 2×2 方格看不见，拼图不得与之相交（边界相接不算） */
+const CORNER_SIZE = 2;
+const CORNER_RECTS: [number, number][] = [
+  [0, 0],
+  [BOARD - CORNER_SIZE, 0],
+  [0, BOARD - CORNER_SIZE],
+  [BOARD - CORNER_SIZE, BOARD - CORNER_SIZE],
+];
+
+/** 凸多边形与轴对齐矩形是否相交（SAT 分离轴；仅边界相接返回 false） */
+function polyIntersectsRect(poly: Pt[], rx: number, ry: number, rw: number): boolean {
+  const rect: Pt[] = [[rx, ry], [rx + rw, ry], [rx + rw, ry + rw], [rx, ry + rw]];
+  const axes: Pt[] = [[1, 0], [0, 1]];
+  for (let i = 0; i < poly.length; i++) {
+    const [x1, y1] = poly[i];
+    const [x2, y2] = poly[(i + 1) % poly.length];
+    axes.push([y2 - y1, -(x2 - x1)]); // 边的法线
+  }
+  for (const [ax, ay] of axes) {
+    let pMin = Infinity, pMax = -Infinity, rMin = Infinity, rMax = -Infinity;
+    for (const [x, y] of poly) {
+      const v = x * ax + y * ay;
+      if (v < pMin) pMin = v;
+      if (v > pMax) pMax = v;
+    }
+    for (const [x, y] of rect) {
+      const v = x * ax + y * ay;
+      if (v < rMin) rMin = v;
+      if (v > rMax) rMax = v;
+    }
+    if (pMax <= rMin + 1e-9 || rMax <= pMin + 1e-9) return false; // 存在分离轴（仅相接也算分离）
+  }
+  return true;
+}
+
+/** 拼图是否与四角 2×2 禁区相交（所有形状都是凸多边形，可用 SAT） */
+export function pieceHitsCorner(shape: string, rot: Rot, x: number, y: number): boolean {
+  const poly = piecePoly(shape, rot, x, y);
+  if (!poly) return true;
+  return CORNER_RECTS.some(([rx, ry]) => polyIntersectsRect(poly, rx, ry, CORNER_SIZE));
 }
 
 /** 结构校验：形状存在、旋转合法、位置为整数且不出棋盘（编辑器摆放步也用它） */
@@ -158,11 +206,28 @@ export function validatePlacements(pieces: { shape: string; rot: Rot; x: number;
   return [...new Set(errors)];
 }
 
-/** 关卡整体验校：结构 + 目标图案非空 + 打散后不与目标相同（否则玩家进入直接通关） */
+/** 四角禁区校验：拼图不得与四角 2×2 方格相交，否则会被圆形裁切看不见 */
+export function validateCorners(pieces: { shape: string; rot: Rot; x: number; y: number }[]): string[] {
+  const errors: string[] = [];
+  pieces.forEach((p, i) => {
+    if (shapeById(p.shape) && isRot(p.rot) && fitsOnBoard(p.shape, p.rot, p.x, p.y) && pieceHitsCorner(p.shape, p.rot, p.x, p.y)) {
+      errors.push(`第 ${i + 1} 块拼图（${shapeById(p.shape)!.name}）与四角 2×2 区域相交`);
+    }
+  });
+  return errors;
+}
+
+/** 关卡整体验校：结构 + 四角禁区 + 目标图案非空 + 打散后不与目标相同（否则玩家进入直接通关） */
 export function validateSrLevel(level: SrLevel): string[] {
   const errors = validatePlacements(level.pieces.map((p) => ({ shape: p.shape, rot: p.rot, x: p.tx, y: p.ty })));
   errors.push(...validatePlacements(level.pieces.map((p) => ({ shape: p.shape, rot: p.rot, x: p.x, y: p.y }))).filter((e) => !errors.includes(e)));
   if (errors.length > 0) return errors;
+  // 目标位置不得碰四角禁区，否则关卡无解；开局位置同理（否则看不见拼图）
+  for (const p of level.pieces) {
+    if (pieceHitsCorner(p.shape, p.rot, p.tx, p.ty)) errors.push(`拼图（${shapeById(p.shape)!.name}）的目标位置与四角 2×2 区域相交`);
+    if (pieceHitsCorner(p.shape, p.rot, p.x, p.y)) errors.push(`拼图（${shapeById(p.shape)!.name}）的开局位置与四角 2×2 区域相交`);
+  }
+  if (errors.length > 0) return [...new Set(errors)];
   const targetKey = compositeKey(compositePolys(level.pieces.map((p) => ({ ...p, x: p.tx, y: p.ty }))));
   if (!targetKey.includes('1')) errors.push('目标图案为空，至少让拼图覆盖一格');
   const startKey = compositeKey(compositePolys(level.pieces));
