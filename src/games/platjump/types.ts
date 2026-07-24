@@ -39,7 +39,7 @@ export interface PlatLevel {
   rows: number; // 4 ~ 15
   steps: number; // >= 4
   spawn: Cell; // 出生点（必放，必须在平台或梯子之上）
-  altar: Cell; // 祭坛（必放，必须在平台或梯子之上）
+  altar: Cell; // 祭坛（必放，必须在平台或梯子顶部之上）
   platforms: Cell[]; // 普通平台
   toggles: ToggleTileDef[]; // 可开关平台（逐格默认状态）
   buttons: ButtonTile[];
@@ -133,10 +133,13 @@ export function validatePlatLevel(level: PlatLevel): string[] {
     if (!platformSet.has(cellKey(bx, by + 1))) errors.push('梯子底部必须放置平台');
   }
 
-  // 落地校验：出生点 / 祭坛 / 按钮的正下方都必须是平台
+  // 落地校验：出生点 / 按钮的正下方必须是平台；
+  // 祭坛的正下方可以是平台或梯子顶部横档（引擎里梯子顶部相当于平台，角色站在其上方一格）
+  const topRungs = new Set(ladderRuns(ladders).map((run) => cellKey(run[0][0], run[0][1])));
   const supported = (c: Cell) => platformSet.has(cellKey(c[0], c[1] + 1));
+  const altarSupported = (c: Cell) => supported(c) || topRungs.has(cellKey(c[0], c[1] + 1));
   if (spawnOk && !supported(spawn)) errors.push('出生点必须放在平台之上');
-  if (altarOk && !supported(altar)) errors.push('祭坛必须放在平台之上');
+  if (altarOk && !altarSupported(altar)) errors.push('祭坛必须放在平台或梯子顶部之上');
   for (const b of buttons) {
     if (inBounds(b.pos) && !supported(b.pos)) errors.push('按钮必须放在平台之上');
   }
