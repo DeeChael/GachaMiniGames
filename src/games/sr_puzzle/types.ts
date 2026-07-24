@@ -30,6 +30,7 @@ export const SHAPES: Shape[] = [
   { id: 'tri3', name: '三角形 3', w: 6, h: 3, points: [[3, 0], [0, 3], [6, 3]] },
   { id: 'trap1', name: '梯形 1', w: 4, h: 6, points: [[2, 0], [0, 2], [0, 6], [4, 2]] },
   { id: 'sq2', name: '正方形 2', w: 6, h: 6, points: [[0, 0], [6, 0], [6, 6], [0, 6]], rotatable: false },
+  { id: 'trap2', name: '梯形 2', w: 4, h: 6, points: [[2, 0], [0, 2], [4, 6], [4, 2]] },
 ];
 
 export const shapeById = (id: string): Shape | undefined => SHAPES.find((s) => s.id === id);
