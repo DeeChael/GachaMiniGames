@@ -18,7 +18,6 @@ import {
 } from './types';
 import { BUILTIN_LEVELS } from './levels';
 import { decodeLevel, encodeLevel } from './shareCode';
-import { generateRandomLevel, type RandomDifficulty } from './random';
 
 // ---------------- 通用：形状 SVG 预览 ----------------
 
@@ -658,21 +657,6 @@ export default function PuzzlePage() {
             </button>
           </div>
           {codeError && <div className="mt-2 text-sm text-red-400">{codeError}</div>}
-        </section>
-
-        <section className="mb-10">
-          <h3 className="mb-4 text-sm tracking-[0.25em] text-neutral-500">随机关卡</h3>
-          <div className="flex flex-wrap gap-3">
-            {([['easy', '简单'], ['normal', '普通'], ['hard', '困难']] as [RandomDifficulty, string][]).map(([d, label]) => (
-              <button
-                key={d}
-                onClick={() => setLevel(generateRandomLevel(d))}
-                className="border border-neutral-800 bg-[#14170f] px-7 py-4 text-base text-neutral-300 hover:border-[#a6e22e]/50 hover:text-[#d6f28a]"
-              >
-                {label}
-              </button>
-            ))}
-          </div>
         </section>
 
         <section className="mb-10">
