@@ -71,5 +71,6 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: 'HarmonyOS Sans', 'HarmonyOS Sans SC', -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   }
 }
