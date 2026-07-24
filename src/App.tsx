@@ -108,6 +108,18 @@ export default function App() {
               </div>
             ))}
           </nav>
+          {/* GitHub 仓库链接 */}
+          <a
+            href="https://github.com/DeeChael/GachaMiniGames"
+            target="_blank"
+            rel="noreferrer"
+            title="GitHub"
+            className="ml-auto flex items-center rounded-md border border-transparent p-2 text-neutral-300 transition-colors hover:border-neutral-700 hover:text-neutral-100"
+            onMouseEnter={(e) => (e.currentTarget.style.background = theme.panel)}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+          >
+            <img src={`${import.meta.env.BASE_URL}github.svg`} alt="GitHub" className="h-10 w-10" />
+          </a>
         </div>
       </div>
 
