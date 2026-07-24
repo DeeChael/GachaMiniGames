@@ -220,11 +220,9 @@ const BOARD = GRID * CELL + (GRID - 1) * GAP;
 export function BalloonGame({
   level,
   onExit,
-  onRestart,
 }: {
   level: BalloonLevel;
   onExit: () => void;
-  onRestart: () => void;
 }) {
   const [placed, setPlaced] = useState<Record<string, BalloonValue>>({});
   const [won, setWon] = useState(false);
@@ -298,6 +296,16 @@ export function BalloonGame({
     setWon(false);
   };
 
+  // R 重置
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === 'r' || e.key === 'R') reset();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   // 3D 倾斜：哪边升力大哪边翘起（更靠近屏幕）
   const tiltX = Math.max(-20, Math.min(20, net.y * 3.2));
   const tiltY = Math.max(-20, Math.min(20, -net.x * 3.2));
@@ -314,13 +322,10 @@ export function BalloonGame({
         </div>
         <div className="flex items-center gap-2">
           <button onClick={reset} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
-            ↺ 重置
-          </button>
-          <button onClick={onRestart} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
-            换一关
+            ↺ 重置 (R)
           </button>
           <button onClick={onExit} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
-            ✕ 退出
+            ✕ 返回
           </button>
         </div>
       </div>
@@ -492,11 +497,8 @@ export function BalloonGame({
               <button onClick={reset} className="border border-neutral-600 px-5 py-2.5 text-sm text-neutral-300 hover:border-neutral-400">
                 再玩一次
               </button>
-              <button onClick={onRestart} className="border border-neutral-600 px-5 py-2.5 text-sm text-neutral-300 hover:border-neutral-400">
-                换一关
-              </button>
               <button onClick={onExit} className="border border-[#a6e22e]/60 bg-[#a6e22e]/10 px-5 py-2.5 text-sm text-[#a6e22e] hover:bg-[#a6e22e]/20">
-                返回菜单
+                返回
               </button>
             </div>
           </div>
@@ -544,7 +546,6 @@ export default function BalloonPage() {
         key={level.name + level.balloons.join(',')}
         level={level}
         onExit={() => setLevel(null)}
-        onRestart={() => setLevel(null)}
       />
     );
   }

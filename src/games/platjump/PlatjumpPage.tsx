@@ -29,12 +29,10 @@ export function PlatjumpGame({
   level,
   test = false,
   onExit,
-  onRestart,
 }: {
   level: PlatLevel;
   test?: boolean; // 编辑器试玩模式：通关后返回编辑器解锁分享码
   onExit: () => void;
-  onRestart: () => void;
 }) {
   const navigate = useNavigate();
   const ctx = useMemo(() => buildCtx(level), [level]);
@@ -64,6 +62,16 @@ export function PlatjumpGame({
 
   const reset = () => setGs(createGame(level));
 
+  // R 重置
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === 'r' || e.key === 'R') reset();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   // 步数 HUD 状态
   const used = gs.history.length;
   const beforeShadow = Math.max(0, level.steps - used);
@@ -72,7 +80,7 @@ export function PlatjumpGame({
     gs.status !== 'playing'
       ? ''
       : gs.npcPortalDeath
-        ? '再见了所有的替罪羊'
+        ? '命运之路毁灭了你的过去'
         : !gs.npcSpawned
           ? `${beforeShadow} 步之后，过去的自己将化为敌人`
           : npcMoving || level.steps === 0
@@ -109,7 +117,7 @@ export function PlatjumpGame({
         </div>
         <div className="flex items-center gap-2">
           <button onClick={reset} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
-            ↺ 重置
+            ↺ 重置 (R)
           </button>
           {test ? (
             <button
@@ -120,11 +128,8 @@ export function PlatjumpGame({
             </button>
           ) : (
             <>
-              <button onClick={onRestart} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
-                换一关
-              </button>
               <button onClick={onExit} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
-                ✕ 退出
+                ✕ 返回
               </button>
             </>
           )}
@@ -266,11 +271,8 @@ export function PlatjumpGame({
                   <button onClick={reset} className="border border-neutral-600 px-5 py-2.5 text-sm text-neutral-300 hover:border-neutral-400">
                     再玩一次
                   </button>
-                  <button onClick={onRestart} className="border border-neutral-600 px-5 py-2.5 text-sm text-neutral-300 hover:border-neutral-400">
-                    换一关
-                  </button>
                   <button onClick={onExit} className="border border-[#d8b44a]/60 bg-[#d8b44a]/10 px-5 py-2.5 text-sm text-[#e8d48a] hover:bg-[#d8b44a]/20">
-                    返回菜单
+                    返回
                   </button>
                 </>
               )}
@@ -322,7 +324,6 @@ export default function PlatjumpPage() {
         level={level}
         test={test}
         onExit={() => setLevel(null)}
-        onRestart={() => setLevel(null)}
       />
     );
   }

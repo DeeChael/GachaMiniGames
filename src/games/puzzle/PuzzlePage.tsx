@@ -177,7 +177,7 @@ function ColorBars({
 
 // ---------------- 游戏主组件 ----------------
 
-export function PuzzleGame({ level, onExit, onRestart }: { level: Level; onExit: () => void; onRestart: () => void }) {
+export function PuzzleGame({ level, onExit }: { level: Level; onExit: () => void }) {
   const { rows, cols } = level;
   const { pieces, placements: initialPlacements } = useMemo(() => buildPieces(level), [level]);
   const [placements, setPlacements] = useState<Record<string, Placement | null>>(initialPlacements);
@@ -373,11 +373,8 @@ export function PuzzleGame({ level, onExit, onRestart }: { level: Level; onExit:
           <button onClick={reset} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
             ↺ 重置
           </button>
-          <button onClick={onRestart} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
-            换一关
-          </button>
           <button onClick={onExit} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
-            ✕ 退出
+            ✕ 返回
           </button>
         </div>
       </div>
@@ -575,11 +572,8 @@ export function PuzzleGame({ level, onExit, onRestart }: { level: Level; onExit:
               <button onClick={() => { reset(); }} className="border border-neutral-600 px-5 py-2.5 text-sm text-neutral-300 hover:border-neutral-400">
                 再玩一次
               </button>
-              <button onClick={onRestart} className="border border-neutral-600 px-5 py-2.5 text-sm text-neutral-300 hover:border-neutral-400">
-                换一关
-              </button>
               <button onClick={onExit} className="border border-[#a6e22e]/60 bg-[#a6e22e]/10 px-5 py-2.5 text-sm text-[#a6e22e] hover:bg-[#a6e22e]/20">
-                返回菜单
+                返回
               </button>
             </div>
           </div>
@@ -597,7 +591,7 @@ export default function PuzzlePage() {
   const [level, setLevel] = useState<Level | null>(null);
   const [codeInput, setCodeInput] = useState('');
   const [codeError, setCodeError] = useState('');
-  const [restartKey, setRestartKey] = useState(0);
+  const [restartKey] = useState(0);
 
   // 支持 ?code= 直接进入分享关卡
   useEffect(() => {
@@ -626,10 +620,6 @@ export default function PuzzlePage() {
         key={`${encodeLevel(level)}-${restartKey}`}
         level={level}
         onExit={() => setLevel(null)}
-        onRestart={() => {
-          setLevel(null);
-          setRestartKey((k) => k + 1);
-        }}
       />
     );
   }

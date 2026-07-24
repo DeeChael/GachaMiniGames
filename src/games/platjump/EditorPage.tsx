@@ -28,9 +28,9 @@ import {
   ToggleTile,
 } from './Tiles';
 
-type Tool = 'spawn' | 'altar' | 'platform' | 'ty' | 'tb' | 'by' | 'bb' | 'ladder' | 'portal' | 'ob' | 'erase';
+type Tool = 'spawn' | 'altar' | 'platform' | 'ty' | 'tb' | 'by' | 'bb' | 'ladder' | 'portal' | 'ob';
 
-// 前 6 个用数字键 1~6，后面的用 Ctrl+数字（Ctrl+1 = 第 7 个）
+// 前 5 个用数字键 1~5，后面的用 Ctrl+数字（Ctrl+1 = 第 6 个）；擦除用右键
 const TOOLS: [Tool, string][] = [
   ['spawn', '⚑ 出生点'],
   ['altar', '🔥 祭坛'],
@@ -42,7 +42,6 @@ const TOOLS: [Tool, string][] = [
   ['ladder', '🪜 梯子'],
   ['portal', '🌀 传送门'],
   ['ob', '🟠 橙色按钮'],
-  ['erase', '⌫ 擦除'],
 ];
 
 type CellSet = Set<string>;
@@ -88,19 +87,19 @@ export default function PlatjumpEditorPage() {
   const [shareCode, setShareCode] = useState('');
   const [copied, setCopied] = useState(false);
 
-  // 数字键 1~6 选前 6 个摆件，Ctrl+数字选第 7 个及以后（Ctrl+1 = 第 7 个）
+  // 数字键 1~5 选前 5 个摆件，Ctrl+数字选第 6 个及以后（Ctrl+1 = 第 6 个）
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       const n = Number(e.key);
       if (!n) return;
       if (e.ctrlKey || e.metaKey) {
-        const idx = 6 + n - 1;
+        const idx = 5 + n - 1;
         if (idx < TOOLS.length) {
           e.preventDefault();
           setTool(TOOLS[idx][0]);
         }
-      } else if (n <= 6) {
+      } else if (n <= 5) {
         setTool(TOOLS[n - 1][0]);
       }
     };
@@ -213,7 +212,6 @@ export default function PlatjumpEditorPage() {
 
   const applyTool = (x: number, y: number) => {
     const k = cellKey(x, y);
-    if (tool === 'erase') return eraseAt(x, y);
     dirty();
     if (tool === 'spawn') return setSpawn([x, y]);
     if (tool === 'altar') return setAltar([x, y]);
@@ -352,8 +350,8 @@ export default function PlatjumpEditorPage() {
         <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
           {/* 左：场景 */}
           <div>
-            {/* 工具栏：6 列网格，第二行（Ctrl+数字）与第一行上下对齐 */}
-            <div className="mb-3 grid grid-cols-6 gap-1.5">
+            {/* 工具栏：5 列网格，第二行（Ctrl+数字）与第一行上下对齐 */}
+            <div className="mb-3 grid grid-cols-5 gap-1.5">
               {TOOLS.map(([t, label], i) => (
                 <button
                   key={t}
@@ -364,13 +362,13 @@ export default function PlatjumpEditorPage() {
                       : 'border-neutral-700 text-neutral-400 hover:border-neutral-500'
                   }`}
                 >
-                  <span className="mr-0.5 text-neutral-500">{i < 6 ? i + 1 : `^${i - 5}`}</span>
+                  <span className="mr-0.5 text-neutral-500">{i < 5 ? i + 1 : `^${i - 4}`}</span>
                   {label}
                 </button>
               ))}
             </div>
             <div className="mb-4 text-xs text-neutral-600">
-              数字键 1~6 选前 6 个，Ctrl+1~{TOOLS.length - 6} 选其余的；点击格子放置，右键直接擦除；传送门必须放两个且放在平台之上，可与平台、黄蓝按钮同格；橙色按钮需要先放传送门
+              数字键 1~5 选前 5 个，Ctrl+1~{TOOLS.length - 5} 选其余的；点击格子放置，右键擦除；传送门必须放两个且放在平台之上，可与平台、黄蓝按钮同格；橙色按钮需要先放传送门
             </div>
 
             <div className="inline-block border border-[#2a3a58] bg-gradient-to-b from-[#101a30] to-[#0a1120] p-4">

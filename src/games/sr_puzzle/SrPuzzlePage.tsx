@@ -4,7 +4,7 @@
 // 重叠部分相互抵消显示为空，拼出目标图案即通关
 // ============================================================
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import type { PlacedPiece, Rot, SrLevel } from './types';
 import { compositeKey, compositePolys } from './types';
@@ -23,11 +23,9 @@ const targetOf = (level: SrLevel) =>
 export function SrPuzzleGame({
   level,
   onExit,
-  onRestart,
 }: {
   level: SrLevel;
   onExit: () => void;
-  onRestart: () => void;
 }) {
   const [pieces, setPieces] = useState<PlacedPiece[]>(() => toPlaced(level));
   const [won, setWon] = useState(false);
@@ -39,6 +37,16 @@ export function SrPuzzleGame({
     setPieces(toPlaced(level));
     setWon(false);
   };
+
+  // R 重置
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === 'r' || e.key === 'R') reset();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const onDrop = (id: string, x: number, y: number, rot: Rot, inside: boolean) => {
     if (won || !inside) return;
@@ -57,13 +65,10 @@ export function SrPuzzleGame({
         </div>
         <div className="flex items-center gap-2">
           <button onClick={reset} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
-            ↺ 重置
-          </button>
-          <button onClick={onRestart} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
-            换一关
+            ↺ 重置 (R)
           </button>
           <button onClick={onExit} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
-            ✕ 退出
+            ✕ 返回
           </button>
         </div>
       </div>
@@ -90,11 +95,8 @@ export function SrPuzzleGame({
               <button onClick={reset} className="border border-neutral-600 px-5 py-2.5 text-sm text-neutral-300 hover:border-neutral-400">
                 再玩一次
               </button>
-              <button onClick={onRestart} className="border border-neutral-600 px-5 py-2.5 text-sm text-neutral-300 hover:border-neutral-400">
-                换一关
-              </button>
               <button onClick={onExit} className="border border-neutral-600 px-5 py-2.5 text-sm text-neutral-300 hover:border-neutral-400">
-                返回菜单
+                返回
               </button>
             </div>
           </div>
@@ -139,7 +141,6 @@ export default function SrPuzzlePage() {
         key={encodeSrLevel(level)}
         level={level}
         onExit={() => setLevel(null)}
-        onRestart={() => setLevel(null)}
       />
     );
   }
@@ -151,7 +152,7 @@ export default function SrPuzzlePage() {
           <div className="text-xs tracking-[0.3em] text-neutral-500">// 崩坏：星穹铁道</div>
           <h1 className="mt-2 text-3xl font-medium text-neutral-100">预言算碑</h1>
           <p className="mt-3 text-base text-neutral-500">
-            拖动棋盘上的拼图碎片，拼出左侧的目标图案。拼图之间可以重叠：重叠部分会相互抵消显示为空，再压上一块又会重新显现。拼图不能放入四角 2×2 的被裁切区域
+            拖动棋盘上的拼图碎片，拼出目标图案
           </p>
         </div>
 

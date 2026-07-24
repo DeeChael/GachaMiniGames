@@ -178,7 +178,7 @@ export default function ColorfillEditorPage() {
               })}
             </div>
             <div className="mb-4 text-xs text-neutral-600">
-              点击或按住左键拖动连续填色，右键擦除；不可填色区域不参与目标判定
+              点击或按住左键拖动连续填色，右键擦除
             </div>
 
             <div className="inline-block rounded-lg border border-neutral-800 bg-[#101318] p-3">

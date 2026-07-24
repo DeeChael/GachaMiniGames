@@ -26,12 +26,10 @@ export function ColorfillGame({
   level,
   test = false,
   onExit,
-  onRestart,
 }: {
   level: FillLevel;
   test?: boolean; // 编辑器试玩模式：通关后返回编辑器解锁分享码
   onExit: () => void;
-  onRestart: () => void;
 }) {
   const navigate = useNavigate();
   const { rows, cols, target } = level;
@@ -129,14 +127,9 @@ export function ColorfillGame({
             >
               ← 返回编辑器
             </button>
-          ) : (
-            <button onClick={onRestart} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
-              换一关
-            </button>
-          )}
-          <button onClick={onExit} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
-            ✕ 退出
-          </button>
+          ) : <button onClick={onExit} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
+            ✕ 返回
+          </button>}
         </div>
       </div>
 
@@ -243,11 +236,8 @@ export function ColorfillGame({
                 </button>
               ) : (
                 <>
-                  <button onClick={onRestart} className="border border-neutral-600 px-5 py-2.5 text-sm text-neutral-300 hover:border-neutral-400">
-                    换一关
-                  </button>
                   <button onClick={onExit} className="border border-neutral-600 px-5 py-2.5 text-sm text-neutral-300 hover:border-neutral-400">
-                    返回菜单
+                    返回
                   </button>
                 </>
               )}
@@ -275,11 +265,8 @@ export function ColorfillGame({
                   <button onClick={reset} className="border border-neutral-600 px-5 py-2.5 text-sm text-neutral-300 hover:border-neutral-400">
                     再玩一次
                   </button>
-                  <button onClick={onRestart} className="border border-neutral-600 px-5 py-2.5 text-sm text-neutral-300 hover:border-neutral-400">
-                    换一关
-                  </button>
                   <button onClick={onExit} className="border border-neutral-600 px-5 py-2.5 text-sm text-neutral-300 hover:border-neutral-400">
-                    返回菜单
+                    返回
                   </button>
                 </>
               )}
@@ -331,7 +318,6 @@ export default function ColorfillPage() {
         level={level}
         test={test}
         onExit={() => setLevel(null)}
-        onRestart={() => setLevel(null)}
       />
     );
   }
@@ -343,7 +329,7 @@ export default function ColorfillPage() {
           <div className="text-xs tracking-[0.3em] text-neutral-500">// 鸣潮</div>
           <h1 className="mt-2 text-3xl font-medium text-neutral-100">溢彩画</h1>
           <p className="mt-3 text-base text-neutral-500">
-            用数字键 1~4 切换颜色，点击异色格子让它所在的同色区域蔓延染色，在限定步数内把所有色块染成目标颜色
+            在限定步数内把所有色块染成目标颜色
           </p>
         </div>
 
