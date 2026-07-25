@@ -77,7 +77,7 @@ export function cellLift(x: number, y: number, value: number, grid: number): { x
   return { x: value * (x - c), y: value * (y - c) };
 }
 
-/** 所有已放置气球的净升力（0 / 0 = 平衡） */
+/** 所有已放置气球的净升力（0 / 0 = 平衡，通关判定用） */
 export function netLift(placed: Placed[], grid: number): { x: number; y: number } {
   let nx = 0;
   let ny = 0;
@@ -89,57 +89,43 @@ export function netLift(placed: Placed[], grid: number): { x: number; y: number 
   return { x: nx, y: ny };
 }
 
-/** 每个轴正 / 负两侧的升力之和与气球数值之和（用于按比值计算棋盘倾斜角度） */
-export function sideLift(
-  placed: Placed[],
-  grid: number,
-): { xPos: number; xNeg: number; yPos: number; yNeg: number; xPosV: number; xNegV: number; yPosV: number; yNegV: number } {
-  let xPos = 0, xNeg = 0, yPos = 0, yNeg = 0;
-  let xPosV = 0, xNegV = 0, yPosV = 0, yNegV = 0;
+// ---------------- 棋盘翘起 / 平衡条（references/endfield-balloon/balloon-tilt-algorithm.md） ----------------
+// 实际升力 L = 气球数值 × 环距 ring = max(|x|,|y|)；
+// 总升力 A = ΣL，一阶矩向量 D = (ΣxL, ΣyL)，升力中心（浮心）C = D/A；
+// 偏心率 ρ = |C| / 支撑半径 R_sup，目标倾角 Θ = atan(ρ · tanΘ_max)，
+// 小偏差近似线性，大偏差饱和。角度只依赖浮心位置，与气球总量无关
+
+/** 浮心统计量：总升力 a 与一阶矩向量 (dx, dy)（整数，可严格判零） */
+export function liftStats(placed: Placed[], grid: number): { a: number; dx: number; dy: number } {
+  const c = centerOf(grid);
+  let a = 0;
+  let dx = 0;
+  let dy = 0;
   for (const p of placed) {
-    const l = cellLift(p.x, p.y, p.value, grid);
-    if (l.x > 0) { xPos += l.x; xPosV += p.value; }
-    else if (l.x < 0) { xNeg -= l.x; xNegV += p.value; }
-    if (l.y > 0) { yPos += l.y; yPosV += p.value; }
-    else if (l.y < 0) { yNeg -= l.y; yNegV += p.value; }
+    const x = p.x - c;
+    const y = p.y - c;
+    const ring = Math.max(Math.abs(x), Math.abs(y));
+    const l = p.value * ring;
+    a += l;
+    dx += x * l;
+    dy += y * l;
   }
-  return { xPos, xNeg, yPos, yNeg, xPosV, xNegV, yPosV, yNegV };
+  return { a, dx, dy };
 }
 
-/**
- * 沿一个轴的不平衡度（-1 ~ 1，带方向）：
- * - 两侧都有力：按（大 − 小）/ 大 的比值决定，两侧越接近越小
- * - 只有一侧有力：按该侧气球的升力加权平均环距 / 最大环距决定，
- *   气球离中心越近越小，全放在最外圈时为 1
- */
-export function axisImbalance(
-  posForce: number,
-  negForce: number,
-  posValue: number,
-  negValue: number,
-  maxLift: number,
-): number {
-  const big = Math.max(posForce, negForce);
-  if (big === 0) return 0;
-  const sign = Math.sign(posForce - negForce);
-  if (posForce === 0 || negForce === 0) {
-    const v = posForce > 0 ? posValue : negValue;
-    // force / value = 该侧气球的升力加权平均环距
-    return (big / v / maxLift) * sign;
-  }
-  return ((big - Math.min(posForce, negForce)) / big) * sign;
-}
+/** 支撑半径 R_sup = 中心到边界格的距离 */
+export const supportRadius = (grid: number): number => centerOf(grid);
 
-/** 倾斜角度 = 不平衡度 × 最大角度 */
-export function axisTilt(
-  posForce: number,
-  negForce: number,
-  posValue: number,
-  negValue: number,
-  maxLift: number,
-  maxDeg: number,
-): number {
-  return axisImbalance(posForce, negForce, posValue, negValue, maxLift) * maxDeg;
+/** 最大倾角（浮心到支撑边界时的角度） */
+export const TILT_MAX_DEG = 20;
+
+/** 单轴偏心率（带符号）：浮心坐标 / 支撑半径；a=0（无有效升力）时为 0 */
+export const axisRho = (d: number, a: number, grid: number): number =>
+  a > 0 ? d / a / supportRadius(grid) : 0;
+
+/** 偏心率 → 倾角（度，带符号）：Θ = atan(ρ · tanΘ_max) */
+export function tiltAngle(rho: number, maxDeg: number = TILT_MAX_DEG): number {
+  return (Math.atan(rho * Math.tan((maxDeg * Math.PI) / 180)) * 180) / Math.PI;
 }
 
 /** 校验关卡是否合法（编辑器用），返回错误信息列表（空数组 = 合法） */

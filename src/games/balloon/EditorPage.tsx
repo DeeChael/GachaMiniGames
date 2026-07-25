@@ -11,14 +11,14 @@ import {
   BALLOON_INFO,
   BALLOON_VALUES,
   GRID_SIZES,
-  axisImbalance,
+  TILT_MAX_DEG,
+  axisRho,
   balloonAllowedInGrid,
   balloonMinGrid,
   cellKey,
   cellShade,
-  maxLiftOf,
-  netLift,
-  sideLift,
+  liftStats,
+  tiltAngle,
   validateBalloonLevel,
 } from './types';
 import { BalloonIcon, ImbalanceGlow, LiftBar } from './BalloonPage';
@@ -79,11 +79,9 @@ export default function BalloonEditorPage() {
       }),
     [placed],
   );
-  const net = useMemo(() => netLift(placedList, grid), [placedList, grid]);
-  const sides = useMemo(() => sideLift(placedList, grid), [placedList, grid]);
-  const maxLift = maxLiftOf(grid);
-  const imbX = axisImbalance(sides.xPos, sides.xNeg, sides.xPosV, sides.xNegV, maxLift);
-  const imbY = axisImbalance(sides.yPos, sides.yNeg, sides.yPosV, sides.yNegV, maxLift);
+  const stats = useMemo(() => liftStats(placedList, grid), [placedList, grid]);
+  const ratioX = tiltAngle(axisRho(stats.dx, stats.a, grid)) / TILT_MAX_DEG;
+  const ratioY = tiltAngle(axisRho(stats.dy, stats.a, grid)) / TILT_MAX_DEG;
 
   // 库存数量跟随网格上的放置：放上去多少就是多少
   const level: BalloonLevel = useMemo(
@@ -205,11 +203,11 @@ export default function BalloonEditorPage() {
             <div className="relative inline-block" style={{ paddingLeft: 48, paddingBottom: 48 }}>
               {/* 左侧升力条（上下） */}
               <div className="absolute" style={{ left: 0, top: 0 }}>
-                <LiftBar net={net.y} ratio={imbY} vertical length={BOARD} />
+                <LiftBar net={stats.dy} ratio={ratioY} vertical length={BOARD} />
               </div>
               {/* 下侧升力条（左右） */}
               <div className="absolute" style={{ top: BOARD + 24, left: 48 }}>
-                <LiftBar net={net.x} ratio={imbX} vertical={false} length={BOARD} />
+                <LiftBar net={stats.dx} ratio={ratioX} vertical={false} length={BOARD} />
               </div>
 
               <div
@@ -270,7 +268,13 @@ export default function BalloonEditorPage() {
                 />
               )}
               {/* 网格内的不平衡提示（各圈交界线渐变） */}
-              <ImbalanceGlow net={net} imbalance={Math.max(Math.abs(imbX), Math.abs(imbY))} grid={grid} cell={CELL} gap={GAP} />
+              <ImbalanceGlow
+                net={{ x: stats.dx, y: stats.dy }}
+                imbalance={Math.max(Math.abs(ratioX), Math.abs(ratioY))}
+                grid={grid}
+                cell={CELL}
+                gap={GAP}
+              />
               </div>
             </div>
 

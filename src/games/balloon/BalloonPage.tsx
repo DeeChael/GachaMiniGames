@@ -10,12 +10,14 @@ import {
   BALLOON_INFO,
   BALLOON_VALUES,
   CELL_SHADES,
-  axisImbalance,
+  TILT_MAX_DEG,
+  axisRho,
   centerOf,
   cellKey,
   cellShade,
+  liftStats,
   netLift,
-  sideLift,
+  tiltAngle,
 } from './types';
 import { boardPointFromScreen } from './tilt3d';
 import { BUILTIN_LEVELS } from './levels';
@@ -270,14 +272,17 @@ export function BalloonGame({
     [placed],
   );
 
-  // 3D 倾斜：两侧都有力时按升力比值定角度；单侧有力时按气球加权环距定角度
-  // （越靠近中心角度越小，最外圈最大）。倾斜时拖拽命中通过投影逆变换对齐
-  const sides = useMemo(() => sideLift(placedList, grid), [placedList, grid]);
-  const maxLift = centerOf(grid);
-  const imbX = axisImbalance(sides.xPos, sides.xNeg, sides.xPosV, sides.xNegV, maxLift);
-  const imbY = axisImbalance(sides.yPos, sides.yNeg, sides.yPosV, sides.yNegV, maxLift);
-  const tiltX = imbY * 20;
-  const tiltY = -imbX * 20;
+  // 3D 倾斜（references/endfield-balloon/balloon-tilt-algorithm.md）：
+  // 浮心 C = D/A 的方向即翘起方向，倾角 Θ = atan(ρ · tanΘ_max)，
+  // 角度只依赖浮心偏心与气球总量无关；动画沿用 CSS transition，速度不变
+  const stats = useMemo(() => liftStats(placedList, grid), [placedList, grid]);
+  const rhoX = axisRho(stats.dx, stats.a, grid);
+  const rhoY = axisRho(stats.dy, stats.a, grid);
+  const tiltX = tiltAngle(rhoY);
+  const tiltY = -tiltAngle(rhoX);
+  // 平衡条用的归一化比值（倾角 / 最大角，-1 ~ 1，ρ>1 时会被显示层截断）
+  const ratioX = tiltX / TILT_MAX_DEG;
+  const ratioY = tiltY / TILT_MAX_DEG;
   // 屏幕坐标 → 倾斜棋盘平面坐标（透视 900 与下方容器一致）
   const project = useCallback(
     (lx: number, ly: number) => boardPointFromScreen(lx, ly, tiltX, tiltY, BOARD, 900),
@@ -387,11 +392,11 @@ export function BalloonGame({
 
           {/* 左侧升力条（上下） */}
           <div className="absolute" style={{ left: 0, top: 64 }}>
-            <LiftBar net={net.y} ratio={imbY} vertical length={BOARD} />
+            <LiftBar net={stats.dy} ratio={ratioY} vertical length={BOARD} />
           </div>
           {/* 下侧升力条（左右） */}
           <div className="absolute" style={{ top: 64 + BOARD + BAR_DIST, left: BAR_DIST + 24 }}>
-            <LiftBar net={net.x} ratio={imbX} vertical={false} length={BOARD} />
+            <LiftBar net={stats.dx} ratio={ratioX} vertical={false} length={BOARD} />
           </div>
           {/* 升力倍率提示（平衡提示条下方） */}
           <div className="absolute space-y-1 text-xs text-neutral-500" style={{ top: 64 + BOARD + BAR_DIST + 44, left: BAR_DIST + 24 }}>
@@ -468,7 +473,13 @@ export function BalloonGame({
                 />
               )}
               {/* 网格内的不平衡提示（两条交界线渐变） */}
-              <ImbalanceGlow net={net} imbalance={Math.max(Math.abs(imbX), Math.abs(imbY))} grid={grid} cell={CELL} gap={GAP} />
+              <ImbalanceGlow
+                net={{ x: stats.dx, y: stats.dy }}
+                imbalance={Math.max(Math.abs(ratioX), Math.abs(ratioY))}
+                grid={grid}
+                cell={CELL}
+                gap={GAP}
+              />
             </div>
           </div>
         </div>
