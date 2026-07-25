@@ -18,6 +18,11 @@ export const centerOf = (grid: number) => (grid - 1) / 2;
 /** 每种棋盘的最大升力倍率（最外圈） */
 export const maxLiftOf = (grid: number) => centerOf(grid);
 
+/** 气球可用的最小棋盘：升力 9 需要 ≥7×7，升力 12 / 18 需要 9×9（仅编辑器限制，分享码不检测） */
+export const balloonMinGrid = (v: BalloonValue): GridSize => (v === 9 ? 7 : v === 12 || v === 18 ? 9 : 5);
+
+export const balloonAllowedInGrid = (v: BalloonValue, grid: number): boolean => grid >= balloonMinGrid(v);
+
 /** 七种气球的升力值 */
 export type BalloonValue = 1 | 2 | 3 | 6 | 9 | 12 | 18;
 
@@ -102,11 +107,30 @@ export function sideLift(
 }
 
 /**
- * 倾斜角度（沿一个轴）：
- * - 两侧都有力：按（大 − 小）/ 大 的比值决定，两侧越接近角度越小
+ * 沿一个轴的不平衡度（-1 ~ 1，带方向）：
+ * - 两侧都有力：按（大 − 小）/ 大 的比值决定，两侧越接近越小
  * - 只有一侧有力：按该侧气球的升力加权平均环距 / 最大环距决定，
- *   气球离中心越近角度越小，全放在最外圈时角度最大
+ *   气球离中心越近越小，全放在最外圈时为 1
  */
+export function axisImbalance(
+  posForce: number,
+  negForce: number,
+  posValue: number,
+  negValue: number,
+  maxLift: number,
+): number {
+  const big = Math.max(posForce, negForce);
+  if (big === 0) return 0;
+  const sign = Math.sign(posForce - negForce);
+  if (posForce === 0 || negForce === 0) {
+    const v = posForce > 0 ? posValue : negValue;
+    // force / value = 该侧气球的升力加权平均环距
+    return (big / v / maxLift) * sign;
+  }
+  return ((big - Math.min(posForce, negForce)) / big) * sign;
+}
+
+/** 倾斜角度 = 不平衡度 × 最大角度 */
 export function axisTilt(
   posForce: number,
   negForce: number,
@@ -115,15 +139,7 @@ export function axisTilt(
   maxLift: number,
   maxDeg: number,
 ): number {
-  const big = Math.max(posForce, negForce);
-  if (big === 0) return 0;
-  const sign = Math.sign(posForce - negForce);
-  if (posForce === 0 || negForce === 0) {
-    const v = posForce > 0 ? posValue : negValue;
-    // force / value = 该侧气球的升力加权平均环距
-    return maxDeg * (big / v / maxLift) * sign;
-  }
-  return maxDeg * ((big - Math.min(posForce, negForce)) / big) * sign;
+  return axisImbalance(posForce, negForce, posValue, negValue, maxLift) * maxDeg;
 }
 
 /** 校验关卡是否合法（编辑器用），返回错误信息列表（空数组 = 合法） */
@@ -146,6 +162,9 @@ export function validateBalloonLevel(
   const seen = new Set<string>();
   for (const p of placed) {
     if (!inBounds(p.x, p.y)) errors.push('有气球放在棋盘外');
+    if (!balloonAllowedInGrid(p.value, grid)) {
+      errors.push(`${BALLOON_INFO[p.value].name}需要至少 ${balloonMinGrid(p.value)}×${balloonMinGrid(p.value)} 的棋盘`);
+    }
     if (!placeableSet.has(cellKey(p.x, p.y))) errors.push('有气球放在不可放置的格子上');
     const k = cellKey(p.x, p.y);
     if (seen.has(k)) errors.push('同一格子上放了多个气球');

@@ -11,10 +11,14 @@ import {
   BALLOON_INFO,
   BALLOON_VALUES,
   GRID_SIZES,
+  axisImbalance,
+  balloonAllowedInGrid,
+  balloonMinGrid,
   cellKey,
   cellShade,
   maxLiftOf,
   netLift,
+  sideLift,
   validateBalloonLevel,
 } from './types';
 import { BalloonIcon, ImbalanceGlow, LiftBar } from './BalloonPage';
@@ -55,14 +59,14 @@ export default function BalloonEditorPage() {
   const STEP = CELL + GAP;
   const BOARD = grid * STEP - GAP;
 
-  // 切换棋盘尺寸：可放置格重置为全棋盘，出界的气球移除
+  // 切换棋盘尺寸：可放置格重置为全棋盘，出界或当前尺寸禁用的气球移除
   const changeGrid = (g: GridSize) => {
     if (g === grid) return;
     setGrid(g);
     setPlaceable(new Set(allCellKeys(g)));
-    setPlaced((p) => Object.fromEntries(Object.entries(p).filter(([k]) => {
+    setPlaced((p) => Object.fromEntries(Object.entries(p).filter(([k, v]) => {
       const [x, y] = k.split(',').map(Number);
-      return x < g && y < g;
+      return x < g && y < g && balloonAllowedInGrid(v, g);
     })));
     setShareCode('');
   };
@@ -76,6 +80,10 @@ export default function BalloonEditorPage() {
     [placed],
   );
   const net = useMemo(() => netLift(placedList, grid), [placedList, grid]);
+  const sides = useMemo(() => sideLift(placedList, grid), [placedList, grid]);
+  const maxLift = maxLiftOf(grid);
+  const imbX = axisImbalance(sides.xPos, sides.xNeg, sides.xPosV, sides.xNegV, maxLift);
+  const imbY = axisImbalance(sides.yPos, sides.yNeg, sides.yPosV, sides.yNegV, maxLift);
 
   // 库存数量跟随网格上的放置：放上去多少就是多少
   const level: BalloonLevel = useMemo(
@@ -197,11 +205,11 @@ export default function BalloonEditorPage() {
             <div className="relative inline-block" style={{ paddingLeft: 48, paddingBottom: 48 }}>
               {/* 左侧升力条（上下） */}
               <div className="absolute" style={{ left: 0, top: 0 }}>
-                <LiftBar net={net.y} vertical length={BOARD} />
+                <LiftBar net={net.y} ratio={imbY} vertical length={BOARD} />
               </div>
               {/* 下侧升力条（左右） */}
               <div className="absolute" style={{ top: BOARD + 24, left: 48 }}>
-                <LiftBar net={net.x} vertical={false} length={BOARD} />
+                <LiftBar net={net.x} ratio={imbX} vertical={false} length={BOARD} />
               </div>
 
               <div
@@ -262,7 +270,7 @@ export default function BalloonEditorPage() {
                 />
               )}
               {/* 网格内的不平衡提示（各圈交界线渐变） */}
-              <ImbalanceGlow net={net} grid={grid} cell={CELL} gap={GAP} />
+              <ImbalanceGlow net={net} imbalance={Math.max(Math.abs(imbX), Math.abs(imbY))} grid={grid} cell={CELL} gap={GAP} />
               </div>
             </div>
 
@@ -270,6 +278,15 @@ export default function BalloonEditorPage() {
 
           {/* 右：配置 */}
           <div className="space-y-6">
+            <div>
+              <label className="mb-1.5 block text-xs tracking-widest text-neutral-500">关卡名称</label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value.slice(0, 24))}
+                className="w-full border border-neutral-800 bg-[#14170f] px-4 py-2.5 text-base outline-none focus:border-[#a6e22e]/50"
+              />
+            </div>
+
             <div>
               <label className="mb-1.5 block text-xs tracking-widest text-neutral-500">棋盘尺寸</label>
               <div className="flex gap-2">
@@ -284,49 +301,44 @@ export default function BalloonEditorPage() {
                     }`}
                   >
                     {g}×{g}
-                    <span className="ml-1 text-xs opacity-70">×{maxLiftOf(g)}</span>
                   </button>
                 ))}
               </div>
               <div className="mt-1.5 text-xs text-neutral-600">切换尺寸后可放置格重置为全棋盘，出界的气球会被移除</div>
             </div>
 
-            <div>
-              <label className="mb-1.5 block text-xs tracking-widest text-neutral-500">关卡名称</label>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value.slice(0, 24))}
-                className="w-full border border-neutral-800 bg-[#14170f] px-4 py-2.5 text-base outline-none focus:border-[#a6e22e]/50"
-              />
-            </div>
-
-            {/* 气球库存（数量 = 网格上已放置的数量） */}
+            {/* 气球库存（数量 = 网格上已放置的数量）；升力 9 需 ≥7×7，升力 12/18 需 9×9 */}
             <div>
               <label className="mb-1.5 block text-xs tracking-widest text-neutral-500">气球库存</label>
               <div className="space-y-2">
-                {[...BALLOON_VALUES].reverse().map((v) => (
-                  <div
-                    key={v}
-                    onPointerDown={(e) => {
-                      if (tool === 'place') {
-                        e.preventDefault();
-                        startDrag(v, null, e.clientX, e.clientY);
-                      }
-                    }}
-                    className={`flex w-full items-center gap-3 border border-neutral-800 px-3 py-2.5 transition-colors ${
-                      tool === 'place' ? 'cursor-grab hover:border-neutral-600' : ''
-                    }`}
-                    style={{ touchAction: 'none' }}
-                  >
-                    <BalloonIcon value={v} size={38} />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm text-neutral-200">{BALLOON_INFO[v].name}</div>
-                      <div className="mt-0.5 text-xs text-neutral-500">
-                        [升力...{v}⬆]{placedCount(v) > 0 && ` · 已放置 ${placedCount(v)}`}
+                {[...BALLOON_VALUES].reverse().map((v) => {
+                  const allowed = balloonAllowedInGrid(v, grid);
+                  return (
+                    <div
+                      key={v}
+                      onPointerDown={(e) => {
+                        if (tool === 'place' && allowed) {
+                          e.preventDefault();
+                          startDrag(v, null, e.clientX, e.clientY);
+                        }
+                      }}
+                      className={`flex w-full items-center gap-3 border border-neutral-800 px-3 py-2.5 transition-colors ${
+                        tool === 'place' && allowed ? 'cursor-grab hover:border-neutral-600' : ''
+                      } ${allowed ? '' : 'opacity-35'}`}
+                      style={{ touchAction: 'none' }}
+                      title={allowed ? undefined : `需要至少 ${balloonMinGrid(v)}×${balloonMinGrid(v)} 的棋盘`}
+                    >
+                      <BalloonIcon value={v} size={38} />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm text-neutral-200">{BALLOON_INFO[v].name}</div>
+                        <div className="mt-0.5 text-xs text-neutral-500">
+                          [升力...{v}⬆]{placedCount(v) > 0 && ` · 已放置 ${placedCount(v)}`}
+                          {!allowed && ` · 需 ${balloonMinGrid(v)}×${balloonMinGrid(v)} 棋盘`}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               {/* 清理按钮 */}
               <button

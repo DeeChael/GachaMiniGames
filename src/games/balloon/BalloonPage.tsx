@@ -10,7 +10,7 @@ import {
   BALLOON_INFO,
   BALLOON_VALUES,
   CELL_SHADES,
-  axisTilt,
+  axisImbalance,
   centerOf,
   cellKey,
   cellShade,
@@ -48,24 +48,26 @@ export function BalloonIcon({ value, size = 40 }: { value: BalloonValue; size?: 
 
 // ---------------- 升力平衡指示条 ----------------
 // 竖直条（网格左侧）表示上下升力，水平条（网格下侧）表示左右升力
-// 配平时整条绿色；不配平时从中心向升力更大的一侧黄色填充，末端显示方向 + 数值
+// 配平时整条绿色；不配平时从中心向升力更大的一侧黄色填充并渐变透明：
+// 只有一个气球时按格子的环距决定长度，多个气球时按两侧升力比值决定，比值越长黄条越长
 
 const BAR_GREEN = '#1fe0b0';
 const BAR_YELLOW = '#f0a832';
 
 export function LiftBar({
   net,
+  ratio,
   vertical,
   length,
 }: {
-  net: number;
+  net: number; // 净升力（决定方向与末端数值）
+  ratio: number; // 不平衡度 0~1（单气球按环距，多气球按比值）
   vertical: boolean;
   length: number;
 }) {
   const balanced = net === 0;
-  const p = Math.min(1, Math.abs(net) / 8);
   const half = length / 2;
-  const fillLen = p * (half - 6);
+  const fillLen = Math.min(1, Math.abs(ratio)) * (half - 6);
   // net<0 = 上/左侧升力大，填充朝条的起点方向
   const towardStart = net < 0;
   const arrow = vertical ? (net < 0 ? '↑' : '↓') : net < 0 ? '←' : '→';
@@ -94,7 +96,7 @@ export function LiftBar({
           }
         />
       )}
-      {!balanced && (
+      {!balanced && fillLen > 0.5 && (
         <>
           <div
             className="absolute"
@@ -112,7 +114,8 @@ export function LiftBar({
                     left: towardStart ? half - fillLen : half,
                     width: fillLen,
                   }),
-              background: `linear-gradient(${vertical ? (towardStart ? 'to top' : 'to bottom') : towardStart ? 'to left' : 'to right'}, ${BAR_YELLOW}, ${BAR_YELLOW}66)`,
+              // 从中心向外渐变透明，不出现生硬截断
+              background: `linear-gradient(${vertical ? (towardStart ? 'to top' : 'to bottom') : towardStart ? 'to left' : 'to right'}, ${BAR_YELLOW}, transparent)`,
               boxShadow: `0 0 8px ${BAR_YELLOW}88`,
             }}
           />
@@ -141,17 +144,20 @@ export function LiftBar({
 }
 
 // ---------------- 网格内的不平衡提示 ----------------
-// 画每两圈之间的交界线（中心格 ↔ 内圈、内圈 ↔ 外圈，依棋盘尺寸递增）：
-// 偏向一个角时该角点不透明度最大，向相邻两角渐变为 0；
-// 偏向一边时靠近该边的两个角点最大，向相反角渐变为 0
+// 画每两圈之间的交界线（中心格 ↔ 内圈、内圈 ↔ 外圈，依棋盘尺寸递增），
+// 透明度偏向升力更大的角 / 边。显示的层数由不平衡度决定（imbalance × 圈数）：
+// 只有一个气球时，其所在圈之外的缝隙不显示；多个气球时比值越大显示的层数越多，
+// 最外一层的透明度先随比值减小而降低、再隐藏，然后依次向内逐层减弱
 
 export function ImbalanceGlow({
   net,
+  imbalance,
   grid,
   cell,
   gap,
 }: {
   net: { x: number; y: number };
+  imbalance: number; // 不平衡度 0~1（两轴取大）
   grid: number;
   cell: number;
   gap: number;
@@ -168,7 +174,6 @@ export function ImbalanceGlow({
     if (dx !== 0) return sx === dx ? 1 : 0;
     return sy === dy ? 1 : 0;
   };
-  const intensity = Math.min(0.9, 0.12 * (Math.abs(net.x) + Math.abs(net.y)));
   // 各圈交界线（正方形），画在缝隙中心，与格子边缘留距：
   // 环距 d 的方块（边长 2d+1 格）与外一圈之间的缝隙
   const squares = Array.from({ length: c }, (_, d) => ({
@@ -177,7 +182,11 @@ export function ImbalanceGlow({
   }));
   const defs: React.ReactNode[] = [];
   const lines: React.ReactNode[] = [];
-  squares.forEach(({ o, s }, si) => {
+  squares.forEach(({ o, s }, d) => {
+    // 本层透明度：不平衡度 × 圈数 逐层点亮， frontier 层按比例减弱
+    const layerAlpha = Math.min(1, Math.max(0, imbalance * c - d));
+    if (layerAlpha <= 0) return;
+    const intensity = 0.75 * layerAlpha;
     // 四角：(-1,-1) 左上 → (1,-1) 右上 → (1,1) 右下 → (-1,1) 左下
     const corners = [
       { sx: -1, sy: -1, px: o, py: o },
@@ -191,7 +200,7 @@ export function ImbalanceGlow({
       const a1 = corner(a.sx, a.sy) * intensity;
       const a2 = corner(b.sx, b.sy) * intensity;
       if (a1 === 0 && a2 === 0) continue;
-      const gid = `glow${si}${e}`;
+      const gid = `glow${d}${e}`;
       defs.push(
         <linearGradient key={gid} id={gid} gradientUnits="userSpaceOnUse" x1={a.px} y1={a.py} x2={b.px} y2={b.py}>
           <stop offset="0" stopColor="#f0c020" stopOpacity={a1} />
@@ -265,8 +274,10 @@ export function BalloonGame({
   // （越靠近中心角度越小，最外圈最大）。倾斜时拖拽命中通过投影逆变换对齐
   const sides = useMemo(() => sideLift(placedList, grid), [placedList, grid]);
   const maxLift = centerOf(grid);
-  const tiltX = axisTilt(sides.yPos, sides.yNeg, sides.yPosV, sides.yNegV, maxLift, 20);
-  const tiltY = -axisTilt(sides.xPos, sides.xNeg, sides.xPosV, sides.xNegV, maxLift, 20);
+  const imbX = axisImbalance(sides.xPos, sides.xNeg, sides.xPosV, sides.xNegV, maxLift);
+  const imbY = axisImbalance(sides.yPos, sides.yNeg, sides.yPosV, sides.yNegV, maxLift);
+  const tiltX = imbY * 20;
+  const tiltY = -imbX * 20;
   // 屏幕坐标 → 倾斜棋盘平面坐标（透视 900 与下方容器一致）
   const project = useCallback(
     (lx: number, ly: number) => boardPointFromScreen(lx, ly, tiltX, tiltY, BOARD, 900),
@@ -376,11 +387,11 @@ export function BalloonGame({
 
           {/* 左侧升力条（上下） */}
           <div className="absolute" style={{ left: 0, top: 64 }}>
-            <LiftBar net={net.y} vertical length={BOARD} />
+            <LiftBar net={net.y} ratio={imbY} vertical length={BOARD} />
           </div>
           {/* 下侧升力条（左右） */}
           <div className="absolute" style={{ top: 64 + BOARD + BAR_DIST, left: BAR_DIST + 24 }}>
-            <LiftBar net={net.x} vertical={false} length={BOARD} />
+            <LiftBar net={net.x} ratio={imbX} vertical={false} length={BOARD} />
           </div>
           {/* 升力倍率提示（平衡提示条下方） */}
           <div className="absolute space-y-1 text-xs text-neutral-500" style={{ top: 64 + BOARD + BAR_DIST + 44, left: BAR_DIST + 24 }}>
@@ -457,7 +468,7 @@ export function BalloonGame({
                 />
               )}
               {/* 网格内的不平衡提示（两条交界线渐变） */}
-              <ImbalanceGlow net={net} grid={grid} cell={CELL} gap={GAP} />
+              <ImbalanceGlow net={net} imbalance={Math.max(Math.abs(imbX), Math.abs(imbY))} grid={grid} cell={CELL} gap={GAP} />
             </div>
           </div>
         </div>
