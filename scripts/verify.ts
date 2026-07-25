@@ -61,7 +61,7 @@ function balloonSolvable(level: (typeof BALLOON_LEVELS)[number]): boolean {
   const used = new Set<string>();
   const dfs = (i: number): boolean => {
     if (i === balloons.length) {
-      const net = netLift(chosen);
+      const net = netLift(chosen, level.grid);
       return net.x === 0 && net.y === 0;
     }
     for (const [x, y] of cells) {
@@ -88,6 +88,29 @@ for (const lv of BALLOON_LEVELS) {
   const roundtrip = canonical(back) === canonical(lv);
   console.log(`气球「${lv.name}」: ${structural.length ? 'INVALID ' + structural.join(',') : 'valid'} solvable=${ok} 分享码往返=${roundtrip ? 'OK' : 'MISMATCH'}`);
   if (structural.length || !ok || !roundtrip) fail++;
+}
+
+// 4b. 气球扩展：7×7 / 9×9 合法 + 分享码往返；旧版分享码（无棋盘字段）按 5×5 兼容
+{
+  const extLevels: (typeof BALLOON_LEVELS)[number][] = [
+    { name: '扩展7×7', grid: 7, placeable: [[0, 3], [6, 3], [3, 0], [3, 6]], balloons: [9, 12, 18, 3] },
+    { name: '扩展9×9', grid: 9, placeable: [[0, 4], [8, 4], [4, 0], [4, 8]], balloons: [9, 12, 18, 3] },
+  ];
+  for (const lv of extLevels) {
+    const structural = validateBalloonLevel(lv, []).filter(
+      (e) => !e.includes('已放置') && !e.includes('升力不平衡'),
+    );
+    const roundtrip = canonical(decodeBalloonLevel(encodeBalloonLevel(lv))) === canonical(lv);
+    console.log(`气球扩展「${lv.name}」: ${structural.length ? 'INVALID ' + structural.join(',') : 'valid'} 分享码往返=${roundtrip ? 'OK' : 'MISMATCH'}`);
+    if (structural.length || !roundtrip) fail++;
+  }
+  // 手工构造旧格式（无 g 字段）分享码
+  const legacyJson = JSON.stringify({ v: 1, n: '旧版关卡', p: '0,2;4,2', b: [1, 1] });
+  const legacyCode = 'EBL1_' + btoa(unescape(encodeURIComponent(legacyJson))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const legacyBack = decodeBalloonLevel(legacyCode);
+  const legacyOk = legacyBack.grid === 5 && legacyBack.placeable.length === 2 && legacyBack.balloons.length === 2;
+  console.log(`气球旧码兼容: ${legacyOk ? 'OK' : 'FAIL'}`);
+  if (!legacyOk) fail++;
 }
 
 // 5. 黄金替罪羊预设关卡（presets.md 分享码）：结构合法 + 分享码往返

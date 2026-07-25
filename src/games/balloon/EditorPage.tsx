@@ -6,13 +6,14 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import type { BalloonLevel, BalloonValue, Placed } from './types';
+import type { BalloonLevel, BalloonValue, GridSize, Placed } from './types';
 import {
   BALLOON_INFO,
   BALLOON_VALUES,
-  GRID,
+  GRID_SIZES,
   cellKey,
   cellShade,
+  maxLiftOf,
   netLift,
   validateBalloonLevel,
 } from './types';
@@ -22,10 +23,9 @@ import { useBalloonDrag } from './useBalloonDrag';
 
 type Tool = 'place' | 'toggle';
 
-const CELL = 56;
-const GAP = 8;
-const STEP = CELL + GAP;
-const BOARD = GRID * STEP - GAP;
+/** 棋盘上所有格子的 key */
+const allCellKeys = (grid: number) =>
+  Array.from({ length: grid * grid }, (_, i) => cellKey(i % grid, Math.floor(i / grid)));
 
 export default function BalloonEditorPage() {
   const navigate = useNavigate();
@@ -34,25 +34,38 @@ export default function BalloonEditorPage() {
   // 试玩返回时：还原编辑器状态
   const init = useMemo(() => {
     const st = location.state as {
-      editor?: { name: string; placeable: string[]; placed: Record<string, BalloonValue> };
+      editor?: { name: string; grid: GridSize; placeable: string[]; placed: Record<string, BalloonValue> };
     } | null;
     return st?.editor ?? null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [name, setName] = useState(init?.name ?? '我的关卡');
-  const [placeable, setPlaceable] = useState<Set<string>>(
-    () =>
-      new Set(
-        init?.placeable ??
-          Array.from({ length: GRID * GRID }, (_, i) => cellKey(i % GRID, Math.floor(i / GRID))),
-      ),
-  );
+  const [grid, setGrid] = useState<GridSize>(init?.grid ?? 5);
+  const [placeable, setPlaceable] = useState<Set<string>>(() => new Set(init?.placeable ?? allCellKeys(init?.grid ?? 5)));
   const [placed, setPlaced] = useState<Record<string, BalloonValue>>(init?.placed ?? {});
   const [tool, setTool] = useState<Tool>('place');
   const boardRef = useRef<HTMLDivElement>(null);
   const [shareCode, setShareCode] = useState('');
   const [copied, setCopied] = useState(false);
+
+  // 棋盘越大格子越小，但棋盘整体尺寸都尽量显示大
+  const CELL = grid <= 5 ? 72 : grid === 7 ? 56 : 44;
+  const GAP = grid === 9 ? 6 : 8;
+  const STEP = CELL + GAP;
+  const BOARD = grid * STEP - GAP;
+
+  // 切换棋盘尺寸：可放置格重置为全棋盘，出界的气球移除
+  const changeGrid = (g: GridSize) => {
+    if (g === grid) return;
+    setGrid(g);
+    setPlaceable(new Set(allCellKeys(g)));
+    setPlaced((p) => Object.fromEntries(Object.entries(p).filter(([k]) => {
+      const [x, y] = k.split(',').map(Number);
+      return x < g && y < g;
+    })));
+    setShareCode('');
+  };
 
   const placedList: Placed[] = useMemo(
     () =>
@@ -62,16 +75,17 @@ export default function BalloonEditorPage() {
       }),
     [placed],
   );
-  const net = useMemo(() => netLift(placedList), [placedList]);
+  const net = useMemo(() => netLift(placedList, grid), [placedList, grid]);
 
   // 库存数量跟随网格上的放置：放上去多少就是多少
   const level: BalloonLevel = useMemo(
     () => ({
       name: name.trim() || '自定义关卡',
+      grid,
       placeable: [...placeable].map((k) => k.split(',').map(Number) as [number, number]),
       balloons: Object.values(placed),
     }),
-    [name, placeable, placed],
+    [name, grid, placeable, placed],
   );
 
   const errors = validateBalloonLevel(level, placedList);
@@ -109,7 +123,7 @@ export default function BalloonEditorPage() {
       return np;
     });
   }, []);
-  const { drag, startDrag } = useBalloonDrag({ boardRef, step: STEP, cell: CELL, canDrop, onDrop, onRemove });
+  const { drag, startDrag } = useBalloonDrag({ boardRef, grid, step: STEP, cell: CELL, canDrop, onDrop, onRemove });
 
   const onCellClick = (x: number, y: number) => {
     if (tool !== 'toggle') return;
@@ -125,7 +139,7 @@ export default function BalloonEditorPage() {
 
   // 试玩：携带编辑器状态，返回编辑器时可还原
   const play = () => {
-    navigate('/balloon', { state: { level, test: true, editor: { name, placeable: [...placeable], placed } } });
+    navigate('/balloon', { state: { level, test: true, editor: { name, grid, placeable: [...placeable], placed } } });
   };
 
   const generate = () => {
@@ -195,8 +209,8 @@ export default function BalloonEditorPage() {
                 className="relative inline-block"
                 style={{ width: BOARD, height: BOARD }}
               >
-              {Array.from({ length: GRID }, (_, y) =>
-                Array.from({ length: GRID }, (_, x) => {
+              {Array.from({ length: grid }, (_, y) =>
+                Array.from({ length: grid }, (_, x) => {
                   const k = cellKey(x, y);
                   const canPlace = placeable.has(k);
                   const b = placed[k];
@@ -216,7 +230,7 @@ export default function BalloonEditorPage() {
                         top: y * STEP,
                         width: CELL,
                         height: CELL,
-                        background: cellShade(x, y),
+                        background: cellShade(x, y, grid),
                         border: canPlace ? '2px solid rgba(255,255,255,0.8)' : '1px solid rgba(255,255,255,0.06)',
                         boxShadow: 'inset 0 0 12px rgba(0,0,0,0.45)',
                         cursor: tool === 'toggle' ? 'pointer' : b ? 'grab' : 'default',
@@ -247,8 +261,8 @@ export default function BalloonEditorPage() {
                   }}
                 />
               )}
-              {/* 网格内的不平衡提示（两条交界线渐变） */}
-              <ImbalanceGlow net={net} cell={CELL} gap={GAP} />
+              {/* 网格内的不平衡提示（各圈交界线渐变） */}
+              <ImbalanceGlow net={net} grid={grid} cell={CELL} gap={GAP} />
               </div>
             </div>
 
@@ -256,6 +270,27 @@ export default function BalloonEditorPage() {
 
           {/* 右：配置 */}
           <div className="space-y-6">
+            <div>
+              <label className="mb-1.5 block text-xs tracking-widest text-neutral-500">棋盘尺寸</label>
+              <div className="flex gap-2">
+                {GRID_SIZES.map((g) => (
+                  <button
+                    key={g}
+                    onClick={() => changeGrid(g)}
+                    className={`flex-1 border px-3 py-2 text-sm ${
+                      grid === g
+                        ? 'border-[#a6e22e]/70 bg-[#a6e22e]/10 text-[#a6e22e]'
+                        : 'border-neutral-700 text-neutral-400 hover:border-neutral-500'
+                    }`}
+                  >
+                    {g}×{g}
+                    <span className="ml-1 text-xs opacity-70">×{maxLiftOf(g)}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="mt-1.5 text-xs text-neutral-600">切换尺寸后可放置格重置为全棋盘，出界的气球会被移除</div>
+            </div>
+
             <div>
               <label className="mb-1.5 block text-xs tracking-widest text-neutral-500">关卡名称</label>
               <input
@@ -308,9 +343,7 @@ export default function BalloonEditorPage() {
                 仅已放置气球格可放置
               </button>
               <button
-                onClick={() =>
-                  setPlaceable(new Set(Array.from({ length: GRID * GRID }, (_, i) => cellKey(i % GRID, Math.floor(i / GRID)))))
-                }
+                onClick={() => setPlaceable(new Set(allCellKeys(grid)))}
                 className="mt-2 w-full border border-neutral-700 px-4 py-2.5 text-sm text-neutral-300 hover:border-neutral-500"
               >
                 激活所有格

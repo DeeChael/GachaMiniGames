@@ -6,7 +6,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import type { BalloonValue } from './types';
-import { GRID } from './types';
 
 export interface BalloonDrag {
   value: BalloonValue;
@@ -19,15 +18,20 @@ export interface BalloonDrag {
 
 export function useBalloonDrag({
   boardRef,
+  grid,
   step,
   cell,
+  project,
   canDrop,
   onDrop,
   onRemove,
 }: {
   boardRef: RefObject<HTMLDivElement | null>;
+  grid: number; // 棋盘边长
   step: number; // 格距（格宽 + 缝隙）
   cell: number; // 格宽
+  /** 屏幕坐标（棋盘容器相对）→ 棋盘平面坐标（棋盘 3D 倾斜时用于修正命中） */
+  project?: (lx: number, ly: number) => { x: number; y: number } | null;
   canDrop: (x: number, y: number, from: string | null) => boolean;
   onDrop: (value: BalloonValue, from: string | null, x: number, y: number) => void;
   onRemove: (from: string) => void;
@@ -49,17 +53,21 @@ export function useBalloonDrag({
       let hover: BalloonDrag['hover'] = null;
       let valid = false;
       if (inside) {
-        const gx = Math.floor(lx / step);
-        const gy = Math.floor(ly / step);
-        // 指针落在缝隙里不算悬停任何格子
-        if (gx >= 0 && gx < GRID && gy >= 0 && gy < GRID && lx - gx * step <= cell && ly - gy * step <= cell) {
-          hover = { x: gx, y: gy };
-          valid = canDrop(gx, gy, d.from);
+        // 棋盘倾斜时先把屏幕坐标逆投影回棋盘平面
+        const p = project ? project(lx, ly) : { x: lx, y: ly };
+        if (p) {
+          const gx = Math.floor(p.x / step);
+          const gy = Math.floor(p.y / step);
+          // 指针落在缝隙里不算悬停任何格子
+          if (gx >= 0 && gx < grid && gy >= 0 && gy < grid && p.x - gx * step <= cell && p.y - gy * step <= cell) {
+            hover = { x: gx, y: gy };
+            valid = canDrop(gx, gy, d.from);
+          }
         }
       }
       return { ...d, pointer: { x: clientX, y: clientY }, hover, valid, inside };
     },
-    [boardRef, step, cell, canDrop],
+    [boardRef, grid, step, cell, project, canDrop],
   );
 
   const startDrag = useCallback(

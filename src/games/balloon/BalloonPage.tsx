@@ -10,11 +10,14 @@ import {
   BALLOON_INFO,
   BALLOON_VALUES,
   CELL_SHADES,
-  GRID,
+  axisTilt,
+  centerOf,
   cellKey,
   cellShade,
   netLift,
+  sideLift,
 } from './types';
+import { boardPointFromScreen } from './tilt3d';
 import { BUILTIN_LEVELS } from './levels';
 import { decodeBalloonLevel } from './shareCode';
 import { useBalloonDrag } from './useBalloonDrag';
@@ -138,22 +141,25 @@ export function LiftBar({
 }
 
 // ---------------- 网格内的不平衡提示 ----------------
-// 只画两条交界线（中心格 ↔ 3x3、3x3 ↔ 5x5）：
+// 画每两圈之间的交界线（中心格 ↔ 内圈、内圈 ↔ 外圈，依棋盘尺寸递增）：
 // 偏向一个角时该角点不透明度最大，向相邻两角渐变为 0；
 // 偏向一边时靠近该边的两个角点最大，向相反角渐变为 0
 
 export function ImbalanceGlow({
   net,
+  grid,
   cell,
   gap,
 }: {
   net: { x: number; y: number };
+  grid: number;
   cell: number;
   gap: number;
 }) {
   if (net.x === 0 && net.y === 0) return null;
+  const c = centerOf(grid);
   const step = cell + gap;
-  const board = GRID * cell + (GRID - 1) * gap;
+  const board = grid * cell + (grid - 1) * gap;
   const dx = Math.sign(net.x);
   const dy = Math.sign(net.y);
   // 角点不透明度权重：sx/sy ∈ {-1, 1}
@@ -163,12 +169,12 @@ export function ImbalanceGlow({
     return sy === dy ? 1 : 0;
   };
   const intensity = Math.min(0.9, 0.12 * (Math.abs(net.x) + Math.abs(net.y)));
-  // 两条交界线（正方形），画在缝隙中心，与格子边缘留距：
-  // 中心格 ↔ 3x3 的缝隙、3x3 ↔ 5x5 的缝隙
-  const squares = [
-    { o: 2 * step - gap / 2, s: cell + gap },
-    { o: step - gap / 2, s: 3 * cell + 3 * gap },
-  ];
+  // 各圈交界线（正方形），画在缝隙中心，与格子边缘留距：
+  // 环距 d 的方块（边长 2d+1 格）与外一圈之间的缝隙
+  const squares = Array.from({ length: c }, (_, d) => ({
+    o: (c - d) * step - gap / 2,
+    s: (2 * d + 1) * cell + (2 * d + 1) * gap,
+  }));
   const defs: React.ReactNode[] = [];
   const lines: React.ReactNode[] = [];
   squares.forEach(({ o, s }, si) => {
@@ -212,11 +218,6 @@ export function ImbalanceGlow({
 
 // ---------------- 游戏主组件 ----------------
 
-const CELL = 64;
-const GAP = 8;
-const STEP = CELL + GAP;
-const BOARD = GRID * CELL + (GRID - 1) * GAP;
-
 export function BalloonGame({
   level,
   test = false,
@@ -228,6 +229,13 @@ export function BalloonGame({
   onExit: () => void;
   onBackToEditor?: () => void;
 }) {
+  // 棋盘越大格子越小，但棋盘整体尺寸都尽量显示大
+  const grid = level.grid;
+  const CELL = grid <= 5 ? 80 : grid === 7 ? 58 : 45;
+  const GAP = grid === 9 ? 6 : 8;
+  const STEP = CELL + GAP;
+  const BOARD = grid * CELL + (grid - 1) * GAP;
+
   const [placed, setPlaced] = useState<Record<string, BalloonValue>>({});
   const [won, setWon] = useState(false);
   const boardRef = useRef<HTMLDivElement>(null);
@@ -236,13 +244,34 @@ export function BalloonGame({
   const total = useMemo(() => level.balloons.reduce((s, b) => s + b, 0), [level]);
 
   const remaining = useMemo(() => {
-    const rem: Record<BalloonValue, number> = { 1: 0, 2: 0, 3: 0, 6: 0 };
+    const rem = Object.fromEntries(BALLOON_VALUES.map((v) => [v, 0])) as Record<BalloonValue, number>;
     for (const b of level.balloons) rem[b]++;
     for (const v of Object.values(placed)) rem[v]--;
     return rem;
   }, [level, placed]);
 
   // ---------------- 拖拽放置 ----------------
+
+  const placedList: Placed[] = useMemo(
+    () =>
+      Object.entries(placed).map(([k, value]) => {
+        const [x, y] = k.split(',').map(Number);
+        return { x, y, value };
+      }),
+    [placed],
+  );
+
+  // 3D 倾斜：两侧都有力时按升力比值定角度；单侧有力时按气球加权环距定角度
+  // （越靠近中心角度越小，最外圈最大）。倾斜时拖拽命中通过投影逆变换对齐
+  const sides = useMemo(() => sideLift(placedList, grid), [placedList, grid]);
+  const maxLift = centerOf(grid);
+  const tiltX = axisTilt(sides.yPos, sides.yNeg, sides.yPosV, sides.yNegV, maxLift, 20);
+  const tiltY = -axisTilt(sides.xPos, sides.xNeg, sides.xPosV, sides.xNegV, maxLift, 20);
+  // 屏幕坐标 → 倾斜棋盘平面坐标（透视 900 与下方容器一致）
+  const project = useCallback(
+    (lx: number, ly: number) => boardPointFromScreen(lx, ly, tiltX, tiltY, BOARD, 900),
+    [tiltX, tiltY, BOARD],
+  );
 
   const canDrop = useCallback(
     (x: number, y: number, from: string | null) => {
@@ -273,17 +302,9 @@ export function BalloonGame({
       return np;
     });
   }, []);
-  const { drag, startDrag } = useBalloonDrag({ boardRef, step: STEP, cell: CELL, canDrop, onDrop, onRemove });
+  const { drag, startDrag } = useBalloonDrag({ boardRef, grid, step: STEP, cell: CELL, project, canDrop, onDrop, onRemove });
 
-  const placedList: Placed[] = useMemo(
-    () =>
-      Object.entries(placed).map(([k, value]) => {
-        const [x, y] = k.split(',').map(Number);
-        return { x, y, value };
-      }),
-    [placed],
-  );
-  const net = useMemo(() => netLift(placedList), [placedList]);
+  const net = useMemo(() => netLift(placedList, grid), [placedList, grid]);
   const placedSum = placedList.reduce((s, p) => s + p.value, 0);
   const balanced = net.x === 0 && net.y === 0;
 
@@ -309,10 +330,6 @@ export function BalloonGame({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
-
-  // 3D 倾斜：哪边升力大哪边翘起（更靠近屏幕）
-  const tiltX = Math.max(-20, Math.min(20, net.y * 3.2));
-  const tiltY = Math.max(-20, Math.min(20, -net.x * 3.2));
 
   const BAR_DIST = 44; // 指示条与网格的间距
 
@@ -367,7 +384,7 @@ export function BalloonGame({
           </div>
           {/* 升力倍率提示（平衡提示条下方） */}
           <div className="absolute space-y-1 text-xs text-neutral-500" style={{ top: 64 + BOARD + BAR_DIST + 44, left: BAR_DIST + 24 }}>
-            {[2, 1, 0].map((ring) => (
+            {Array.from({ length: centerOf(grid) + 1 }, (_, i) => centerOf(grid) - i).map((ring) => (
               <div key={ring} className="flex items-center gap-2">
                 <span className="inline-block h-3 w-3 border border-white/15" style={{ background: CELL_SHADES[ring] }} />
                 方格上的气球升力倍率 ×{ring}
@@ -389,8 +406,8 @@ export function BalloonGame({
               }}
             >
               {/* 格子 */}
-              {Array.from({ length: GRID }, (_, y) =>
-                Array.from({ length: GRID }, (_, x) => {
+              {Array.from({ length: grid }, (_, y) =>
+                Array.from({ length: grid }, (_, x) => {
                   const k = cellKey(x, y);
                   const canPlace = placeableSet.has(k);
                   const b = placed[k];
@@ -409,7 +426,7 @@ export function BalloonGame({
                         top: y * STEP,
                         width: CELL,
                         height: CELL,
-                        background: cellShade(x, y),
+                        background: cellShade(x, y, grid),
                         border: canPlace ? '2px solid rgba(255,255,255,0.8)' : '1px solid rgba(255,255,255,0.06)',
                         boxShadow: 'inset 0 0 12px rgba(0,0,0,0.45)',
                         cursor: b && !won ? 'grab' : 'default',
@@ -440,7 +457,7 @@ export function BalloonGame({
                 />
               )}
               {/* 网格内的不平衡提示（两条交界线渐变） */}
-              <ImbalanceGlow net={net} cell={CELL} gap={GAP} />
+              <ImbalanceGlow net={net} grid={grid} cell={CELL} gap={GAP} />
             </div>
           </div>
         </div>

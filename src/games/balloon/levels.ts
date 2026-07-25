@@ -8,12 +8,14 @@ import type { BalloonLevel } from './types';
 export const BUILTIN_LEVELS: BalloonLevel[] = [
   {
     name: '初次回收',
+    grid: 5,
     // 解：1@(0,2) 2@(3,2) 1@(2,2)
     placeable: [[0, 2], [1, 2], [2, 2], [3, 2], [4, 2], [2, 1], [2, 3]],
     balloons: [1, 1, 2],
   },
   {
     name: '均衡配重',
+    grid: 5,
     // 解：3@(0,3) 3@(4,1) 2@(1,0) 2@(3,4)
     placeable: [
       [0, 1], [0, 2], [0, 3], [4, 1], [4, 2], [4, 3],
@@ -24,6 +26,7 @@ export const BUILTIN_LEVELS: BalloonLevel[] = [
   },
   {
     name: '满载回收',
+    grid: 5,
     // 解：6@(2,0) 3@(2,4) 3@(0,4) 2@(4,2) 2@(3,2)
     placeable: [
       [0, 0], [2, 0], [3, 0], [0, 2], [3, 2], [4, 2],

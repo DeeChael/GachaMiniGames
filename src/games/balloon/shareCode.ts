@@ -1,10 +1,11 @@
 // ============================================================
 // 浮空回收 —— 分享码编解码（纯前端实现）
 // 格式：EBL1_ + base64url( UTF-8 JSON )
+// 兼容旧码：没有 g 字段（棋盘边长）的分享码按 5×5 处理
 // ============================================================
 
-import type { BalloonLevel, BalloonValue, Cell } from './types';
-import { BALLOON_VALUES, GRID, cellKey } from './types';
+import type { BalloonLevel, BalloonValue, Cell, GridSize } from './types';
+import { BALLOON_VALUES, DEFAULT_GRID, GRID_SIZES, cellKey } from './types';
 
 const PREFIX = 'EBL1_';
 
@@ -13,6 +14,7 @@ interface PackedLevel {
   n: string;
   p: string; // 可放置格 "x,y;x,y;..."
   b: BalloonValue[]; // 气球升力值列表
+  g?: number; // 棋盘边长：5 / 7 / 9（缺省 = 5，兼容旧码）
 }
 
 const packCells = (cells: Cell[]) => cells.map(([x, y]) => `${x},${y}`).join(';');
@@ -50,6 +52,7 @@ export function encodeBalloonLevel(level: BalloonLevel): string {
     n: level.name || '自定义关卡',
     p: packCells(level.placeable),
     b: level.balloons,
+    g: level.grid,
   };
   return PREFIX + toBase64Url(JSON.stringify(packed));
 }
@@ -68,10 +71,14 @@ export function decodeBalloonLevel(code: string): BalloonLevel {
   }
   if (packed.v !== 1) throw new Error('分享码版本不受支持');
 
+  const grid: GridSize = (GRID_SIZES as readonly number[]).includes(packed.g ?? 0)
+    ? (packed.g as GridSize)
+    : DEFAULT_GRID;
+
   const placeable = unpackCells(typeof packed.p === 'string' ? packed.p : '');
   const seen = new Set<string>();
   for (const [x, y] of placeable) {
-    if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= GRID || y >= GRID) {
+    if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= grid || y >= grid) {
       throw new Error('分享码内容无效：可放置格越界');
     }
     const k = cellKey(x, y);
@@ -88,6 +95,7 @@ export function decodeBalloonLevel(code: string): BalloonLevel {
 
   return {
     name: typeof packed.n === 'string' && packed.n ? packed.n.slice(0, 24) : '分享关卡',
+    grid,
     placeable,
     balloons,
   };
