@@ -59,15 +59,12 @@ export default function BalloonEditorPage() {
   const STEP = CELL + GAP;
   const BOARD = grid * STEP - GAP;
 
-  // 切换棋盘尺寸：可放置格重置为全棋盘，出界或当前尺寸禁用的气球移除
+  // 切换棋盘尺寸：可放置格重置为全棋盘，清空所有气球
   const changeGrid = (g: GridSize) => {
     if (g === grid) return;
     setGrid(g);
     setPlaceable(new Set(allCellKeys(g)));
-    setPlaced((p) => Object.fromEntries(Object.entries(p).filter(([k, v]) => {
-      const [x, y] = k.split(',').map(Number);
-      return x < g && y < g && balloonAllowedInGrid(v, g);
-    })));
+    setPlaced({});
     setShareCode('');
   };
 
@@ -307,7 +304,7 @@ export default function BalloonEditorPage() {
                   </button>
                 ))}
               </div>
-              <div className="mt-1.5 text-xs text-neutral-600">切换尺寸后可放置格重置为全棋盘，出界的气球会被移除</div>
+              <div className="mt-1.5 text-xs text-neutral-600">切换尺寸后可放置格重置为全棋盘，并清空所有气球</div>
             </div>
 
             {/* 气球库存（数量 = 网格上已放置的数量）；升力 9 需 ≥7×7，升力 12/18 需 9×9 */}
