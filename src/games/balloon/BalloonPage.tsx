@@ -126,14 +126,15 @@ export function LiftBar({
             style={{
               color: BAR_YELLOW,
               fontSize: 13,
+              // 钳制在条的范围内：黄条填满（比值 1）时数字和箭头也不会跑出显示区
               ...(vertical
                 ? {
                     left: bar + 6,
-                    top: towardStart ? half - fillLen - 16 : half + fillLen + 4,
+                    top: Math.max(0, Math.min(length - 16, towardStart ? half - fillLen - 16 : half + fillLen + 4)),
                   }
                 : {
                     top: bar + 6,
-                    left: towardStart ? half - fillLen - 30 : half + fillLen + 6,
+                    left: Math.max(0, Math.min(length - 30, towardStart ? half - fillLen - 30 : half + fillLen + 6)),
                   }),
             }}
           >
@@ -389,13 +390,13 @@ export function BalloonGame({
             </div>
           </div>
 
-          {/* 左侧升力条（上下） */}
+          {/* 左侧升力条（上下）：长度按浮心偏心率，数字与方向按净升力 */}
           <div className="absolute" style={{ left: 0, top: 64 }}>
-            <LiftBar net={stats.dy} ratio={ratioY} vertical length={BOARD} />
+            <LiftBar net={net.y} ratio={ratioY} vertical length={BOARD} />
           </div>
           {/* 下侧升力条（左右） */}
           <div className="absolute" style={{ top: 64 + BOARD + BAR_DIST, left: BAR_DIST + 24 }}>
-            <LiftBar net={stats.dx} ratio={ratioX} vertical={false} length={BOARD} />
+            <LiftBar net={net.x} ratio={ratioX} vertical={false} length={BOARD} />
           </div>
           {/* 升力倍率提示（平衡提示条下方） */}
           <div className="absolute space-y-1 text-xs text-neutral-500" style={{ top: 64 + BOARD + BAR_DIST + 44, left: BAR_DIST + 24 }}>
@@ -473,7 +474,7 @@ export function BalloonGame({
               )}
               {/* 网格内的不平衡提示（两条交界线渐变） */}
               <ImbalanceGlow
-                net={{ x: stats.dx, y: stats.dy }}
+                net={net}
                 imbalance={Math.max(Math.abs(ratioX), Math.abs(ratioY))}
                 grid={grid}
                 cell={CELL}

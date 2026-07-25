@@ -77,7 +77,7 @@ export function cellLift(x: number, y: number, value: number, grid: number): { x
   return { x: value * (x - c), y: value * (y - c) };
 }
 
-/** 所有已放置气球的净升力（0 / 0 = 平衡，通关判定用） */
+/** 所有已放置气球的净升力（0 / 0 = 平衡）。通关判定与平衡条数字用它 */
 export function netLift(placed: Placed[], grid: number): { x: number; y: number } {
   let nx = 0;
   let ny = 0;
@@ -89,11 +89,12 @@ export function netLift(placed: Placed[], grid: number): { x: number; y: number 
   return { x: nx, y: ny };
 }
 
-// ---------------- 棋盘翘起 / 平衡条（references/endfield-balloon/balloon-tilt-algorithm.md） ----------------
+// ---------------- 棋盘翘起（references/endfield-balloon/balloon-tilt-algorithm.md） ----------------
 // 实际升力 L = 气球数值 × 环距 ring = max(|x|,|y|)；
 // 总升力 A = ΣL，一阶矩向量 D = (ΣxL, ΣyL)，升力中心（浮心）C = D/A；
 // 偏心率 ρ = |C| / 支撑半径 R_sup，目标倾角 Θ = atan(ρ · tanΘ_max)，
-// 小偏差近似线性，大偏差饱和。角度只依赖浮心位置，与气球总量无关
+// 小偏差近似线性，大偏差饱和。角度只依赖浮心位置，与气球总量无关。
+// 注意：浮心统计只用于倾斜角度与平衡条长度，不影响平衡判定
 
 /** 浮心统计量：总升力 a 与一阶矩向量 (dx, dy)（整数，可严格判零） */
 export function liftStats(placed: Placed[], grid: number): { a: number; dx: number; dy: number } {

@@ -18,6 +18,7 @@ import {
   cellKey,
   cellShade,
   liftStats,
+  netLift,
   tiltAngle,
   validateBalloonLevel,
 } from './types';
@@ -76,6 +77,7 @@ export default function BalloonEditorPage() {
       }),
     [placed],
   );
+  const net = useMemo(() => netLift(placedList, grid), [placedList, grid]);
   const stats = useMemo(() => liftStats(placedList, grid), [placedList, grid]);
   const ratioX = tiltAngle(axisRho(stats.dx, stats.a, grid)) / TILT_MAX_DEG;
   const ratioY = tiltAngle(axisRho(stats.dy, stats.a, grid)) / TILT_MAX_DEG;
@@ -199,11 +201,11 @@ export default function BalloonEditorPage() {
             <div className="relative inline-block" style={{ paddingLeft: 48, paddingBottom: 48 }}>
               {/* 左侧升力条（上下） */}
               <div className="absolute" style={{ left: 0, top: 0 }}>
-                <LiftBar net={stats.dy} ratio={ratioY} vertical length={BOARD} />
+                <LiftBar net={net.y} ratio={ratioY} vertical length={BOARD} />
               </div>
               {/* 下侧升力条（左右） */}
               <div className="absolute" style={{ top: BOARD + 24, left: 48 }}>
-                <LiftBar net={stats.dx} ratio={ratioX} vertical={false} length={BOARD} />
+                <LiftBar net={net.x} ratio={ratioX} vertical={false} length={BOARD} />
               </div>
 
               <div
@@ -265,7 +267,7 @@ export default function BalloonEditorPage() {
               )}
               {/* 网格内的不平衡提示（各圈交界线渐变） */}
               <ImbalanceGlow
-                net={{ x: stats.dx, y: stats.dy }}
+                net={net}
                 imbalance={Math.max(Math.abs(ratioX), Math.abs(ratioY))}
                 grid={grid}
                 cell={CELL}
