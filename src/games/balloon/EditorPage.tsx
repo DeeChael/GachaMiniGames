@@ -101,14 +101,12 @@ export default function BalloonEditorPage() {
   // ---------------- 拖拽放置 ----------------
 
   const canDrop = useCallback(
-    (x: number, y: number, from: string | null) => {
-      const k = cellKey(x, y);
-      if (!placeable.has(k)) return false;
-      if (!placed[k]) return true;
-      // 目标格已有气球：仅允许拖动的已放置气球与其交换位置
-      return from !== null;
+    (x: number, y: number) => {
+      // 可放置格都能落子：从库存拖到已放置的气球上会替换它（原气球回库存），
+      // 拖动已放置的气球到已放置的气球上则交换位置
+      return placeable.has(cellKey(x, y));
     },
-    [placeable, placed],
+    [placeable],
   );
   const onDrop = useCallback((value: BalloonValue, from: string | null, x: number, y: number) => {
     const k = cellKey(x, y);
@@ -118,7 +116,8 @@ export default function BalloonEditorPage() {
       const target = np[k];
       if (from) delete np[from];
       np[k] = value;
-      if (from && target) np[from] = target; // 与目标格的气球交换位置
+      if (from && target) np[from] = target; // 棋盘上拖动：与目标格的气球交换位置
+      // 从库存拖入：目标格的气球被覆盖，自动回到库存
       return np;
     });
   }, []);
