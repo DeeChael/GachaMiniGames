@@ -327,7 +327,7 @@ export default function PipePage() {
           <div className="text-xs tracking-[0.3em] text-neutral-500">// 绝区零</div>
           <h1 className="mt-2 text-3xl font-medium text-neutral-100">邦布维修</h1>
           <p className="mt-3 text-base text-neutral-500">
-            点击旋转中继器，把电力从电源沿连接线传到所有获电处。触点只接收同色电；中继器通电后所有触点会释放各自颜色的电
+            从电源传输所有电力到目标点，修复邦布
           </p>
         </div>
 
@@ -366,9 +366,6 @@ export default function PipePage() {
                 className="border border-neutral-800 bg-[#121917] px-5 py-5 text-left hover:border-[#7cee94]/50"
               >
                 <div className="text-base text-neutral-200">{lv.name}</div>
-                <div className="mt-2 text-xs text-neutral-600">
-                  {lv.cols}×{lv.rows} · {lv.lines.length} 条连接线
-                </div>
               </button>
             ))}
           </div>

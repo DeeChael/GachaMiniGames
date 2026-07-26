@@ -60,10 +60,10 @@ export function LockIcon({ x, y, size, color }: { x: number; y: number; size: nu
 export function SourceTile({ s, el, powered }: { s: number; el: SourceEl; powered: boolean }) {
   const c = s / 2;
   const col = PIPE_COLORS[el.color][powered ? 'on' : 'off'];
-  const w = s * 0.055;
+  const w = s * 0.09;
   return (
     <g style={{ transition: 'opacity 0.2s' }}>
-      <circle cx={c} cy={c} r={R1 * s} fill="none" stroke={col} strokeWidth={w} style={{ transition: 'stroke 0.25s' }} />
+      <circle cx={c} cy={c} r={R1 * s * 0.9} fill="none" stroke={col} strokeWidth={w} style={{ transition: 'stroke 0.25s' }} />
       <LightningIcon x={c} y={c} size={R1 * s * 1.1} color={col} />
     </g>
   );

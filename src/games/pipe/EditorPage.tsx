@@ -500,13 +500,13 @@ export default function PipeEditorPage() {
             )}
             <div className="mb-4 text-xs text-neutral-600">
               {step === 'arrange'
-                ? tool === 'source' && '点击放置电力源，点击已放置的切换颜色，右键删除'
-                || tool === 'receiver' && '点击放置获电处；悬停小块出现描边，点击切换该块颜色，右键删除'
-                || tool === 'bar' && '点击放置条形中继器（默认横向两触点）；点击半边切换颜色，右键删除'
-                || tool === 'quad' && '点击放置四向中继器；点击象限切换颜色，Ctrl+点击切换触点，右键删除'
-                || tool === 'line' && '按住一格拖到同行的另一格创建连接线（可跨空格），右键删除'
-                || '点击放置钥匙点，点击切换颜色；选中钥匙工具时点击中继器切换上锁'
-              : '点击中继器旋转打乱（上锁的不能手动旋转，用随机打乱）；必须打乱到不是通路才能分享'}
+                ? tool === 'source' && '点击放置电力源；点击已放置的电力源切换颜色；右键删除'
+                || tool === 'receiver' && '点击放置获电处；点击块切换颜色；右键删除'
+                || tool === 'bar' && '点击放置条形中继器；点击半边切换颜色；右键删除'
+                || tool === 'quad' && '点击放置四向中继器；点击块切换颜色；Ctrl+点击切换触点；右键删除'
+                || tool === 'line' && '按住一格拖到同行/列的另一格创建连接线；右键删除'
+                || '点击放置钥匙点；点击切换颜色；选中钥匙工具时点击中继器切换上锁'
+              : '点击中继器旋转打乱'}
             </div>
 
             <div className="inline-block rounded-lg border border-[#1e3a3a] bg-[#0d2424] p-3">
@@ -763,7 +763,7 @@ export default function PipeEditorPage() {
                     disabled={!scrambled}
                     className="mt-2 w-full border border-neutral-700 px-4 py-3 text-base text-neutral-300 hover:border-neutral-500 disabled:cursor-not-allowed disabled:opacity-30"
                   >
-                    ▶ 试玩{hasKey && !testPassed && '（有钥匙点，需通关后才能分享）'}
+                    ▶ 试玩
                   </button>
                   <button
                     onClick={generate}
