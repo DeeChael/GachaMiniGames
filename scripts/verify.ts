@@ -17,6 +17,9 @@ import { solvableWithinSteps } from '../src/games/colorfill/solver';
 import { BUILTIN_LEVELS as SR_LEVELS } from '../src/games/sr_puzzle/levels';
 import { decodeSrLevel, encodeSrLevel } from '../src/games/sr_puzzle/shareCode';
 import { validateSrLevel } from '../src/games/sr_puzzle/types';
+import { BUILTIN_LEVELS as PIPE_LEVELS } from '../src/games/pipe/levels';
+import { decodePipeLevel, encodePipeLevel } from '../src/games/pipe/shareCode';
+import { isRelay, simulate, validatePipeLevel } from '../src/games/pipe/types';
 import {
   cellKey as bCellKey,
   netLift,
@@ -181,6 +184,28 @@ for (const lv of SR_LEVELS) {
   const roundtrip = canonical(back) === canonical(lv);
   console.log(`预言算碑「${lv.name}」: ${errs.length ? 'INVALID ' + errs.join(',') : 'valid'} 分享码长度=${code.length} 往返=${roundtrip ? 'OK' : 'MISMATCH'}`);
   if (errs.length || !roundtrip) fail++;
+}
+
+// 8. 邦布维修内置关卡：结构合法 + 解为通路 + 开局不是通路 + 分享码往返
+for (const lv of PIPE_LEVELS) {
+  const errs = validatePipeLevel(lv);
+  const solRots: Record<string, number> = {};
+  const startRots: Record<string, number> = {};
+  for (const [k, el] of Object.entries(lv.elements)) {
+    if (isRelay(el)) {
+      solRots[k] = el.rot;
+      startRots[k] = el.startRot;
+    }
+  }
+  const solOk = simulate(lv, solRots).done;
+  const scrambled = !simulate(lv, startRots).done;
+  const code = encodePipeLevel(lv);
+  const back = decodePipeLevel(code);
+  const roundtrip = canonical(back) === canonical(lv);
+  console.log(
+    `邦布维修「${lv.name}」: ${errs.length ? 'INVALID ' + errs.join(',') : 'valid'} 通路=${solOk} 已打乱=${scrambled} 分享码往返=${roundtrip ? 'OK' : 'MISMATCH'}`,
+  );
+  if (errs.length || !solOk || !scrambled || !roundtrip) fail++;
 }
 
 console.log(fail === 0 ? '\n全部通过 ✓' : `\n失败 ${fail} 项 ✗`);
