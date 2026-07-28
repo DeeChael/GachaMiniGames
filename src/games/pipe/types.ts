@@ -430,6 +430,24 @@ export function validatePipeLevel(level: PipeLevel): string[] {
     seen.add(sig);
   });
 
+  // 同方向重叠（覆盖 ≥2 格）的连接线不合法（仅端点相接的接续除外）
+  for (let i = 0; i < lines.length; i++) {
+    for (let j = i + 1; j < lines.length; j++) {
+      const a = lines[i];
+      const b = lines[j];
+      if (a.a[1] === a.b[1] && b.a[1] === b.b[1] && a.a[1] === b.a[1]) {
+        const [s1, e1] = [Math.min(a.a[0], a.b[0]), Math.max(a.a[0], a.b[0])];
+        const [s2, e2] = [Math.min(b.a[0], b.b[0]), Math.max(b.a[0], b.b[0])];
+        if (Math.min(e1, e2) - Math.max(s1, s2) >= 1) errors.push('存在相互重叠的连接线');
+      }
+      if (a.a[0] === a.b[0] && b.a[0] === b.b[0] && a.a[0] === b.a[0]) {
+        const [s1, e1] = [Math.min(a.a[1], a.b[1]), Math.max(a.a[1], a.b[1])];
+        const [s2, e2] = [Math.min(b.a[1], b.b[1]), Math.max(b.a[1], b.b[1])];
+        if (Math.min(e1, e2) - Math.max(s1, s2) >= 1) errors.push('存在相互重叠的连接线');
+      }
+    }
+  }
+
   // 获电处接线数量与预设匹配
   const lineCountAt = (k: string, dir: Dir) =>
     lines.some((l) => cellKey(l.a[0], l.a[1]) === k && dirToward(l.a, l.b) === dir) ||

@@ -111,6 +111,13 @@ export default function PipeEditorPage() {
             [hover.k]: { ...el, rot: (el.rot + 1) % 4, startRot: (el.rot + 1) % 4 },
           }));
           setAnimRots((prev) => ({ ...prev, [hover.k]: (prev[hover.k] ?? el.rot) + 1 }));
+        } else if (el && el.kind === 'key') {
+          // 钥匙点：编辑器里按 R 旋转触点朝向（游玩时不可旋转）
+          dirty();
+          setElements((prev) => ({
+            ...prev,
+            [hover.k]: { ...el, dir: ((el.dir + 1) % 4) as Dir },
+          }));
         }
         return;
       }
@@ -352,6 +359,27 @@ export default function PipeEditorPage() {
 
   // ---------------- 连接线拖拽创建 ----------------
 
+  /** 同方向且重叠 ≥2 格的两条线合并成一条（合并后中间有控件则不合并） */
+  const tryMergePair = (a: PipeLine, b: PipeLine): PipeLine | null => {
+    const horiz = a.a[1] === a.b[1] && b.a[1] === b.b[1] && a.a[1] === b.a[1];
+    const vert = a.a[0] === a.b[0] && b.a[0] === b.b[0] && a.a[0] === b.a[0];
+    if (!horiz && !vert) return null;
+    const axis = horiz ? 0 : 1;
+    const s1 = Math.min(a.a[axis], a.b[axis]);
+    const e1 = Math.max(a.a[axis], a.b[axis]);
+    const s2 = Math.min(b.a[axis], b.b[axis]);
+    const e2 = Math.max(b.a[axis], b.b[axis]);
+    // 重叠段覆盖不到两格：不合并（仅端点相接属于接续，不重叠）
+    if (Math.min(e1, e2) - Math.max(s1, s2) < 1) return null;
+    const merged: PipeLine = horiz
+      ? { a: [Math.min(s1, s2), a.a[1]], b: [Math.max(e1, e2), a.a[1]] }
+      : { a: [a.a[0], Math.min(s1, s2)], b: [a.a[0], Math.max(e1, e2)] };
+    for (const [x, y] of lineMidCells(merged)) {
+      if (elements[cellKey(x, y)]) return null;
+    }
+    return merged;
+  };
+
   const tryCreateLine = (a: Cell, b: Cell) => {
     if (a[0] === b[0] && a[1] === b[1]) return;
     if (a[0] !== b[0] && a[1] !== b[1]) return; // 只能直线
@@ -363,7 +391,17 @@ export default function PipeEditorPage() {
     const sig = [cellKey(a[0], a[1]), cellKey(b[0], b[1])].sort().join('|');
     if (lines.some((l) => [cellKey(l.a[0], l.a[1]), cellKey(l.b[0], l.b[1])].sort().join('|') === sig)) return;
     dirty();
-    setLines((prev) => [...prev, { a, b }]);
+    // 放置成功：与同方向重叠 ≥2 格的已有线合并
+    setLines((prev) => {
+      let cur: PipeLine = { a, b };
+      const rest: PipeLine[] = [];
+      for (const l of prev) {
+        const merged = tryMergePair(cur, l);
+        if (merged) cur = merged;
+        else rest.push(l);
+      }
+      return [...rest, cur];
+    });
   };
 
   // ---------------- 步骤流转 ----------------
