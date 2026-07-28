@@ -151,33 +151,35 @@ export function BarTile({
   const w = locked ? r / 3 : r / 2; // 上锁时环宽变为半径的三分之一
   const dl = `${delay}ms`;
   return (
-    <g
-      style={{
-        transform: `rotate(${rot * 90}deg)`,
-        transformOrigin: `${c}px ${c}px`,
-        transition: 'transform 0.22s ease-in-out',
-      }}
-    >
-      {/* 两个半边（触点 0 = 右半边，触点 1 = 左半边），断开处垂直于触点 */}
-      {[0, 1].map((i) => (
-        <path
-          key={i}
-          d={sector(c, c, r, r - w, i * 180 + GAP / 2, (i + 1) * 180 - GAP / 2)}
-          fill={PIPE_COLORS[el.colors[i as 0 | 1]][on ? 'on' : 'off']}
-          style={{ transition: `fill 0.25s ${dl}, d 0.2s` }}
-        />
-      ))}
-      {/* 两个对向触点（局部右、局部左） */}
-      {[1, 3].map((d, i) => (
-        <path
-          key={d}
-          d={contactUp(c, c, r, CONTACT_LEN_RATIO * s, w)}
-          fill={PIPE_COLORS[el.colors[i as 0 | 1]][on ? 'on' : 'off']}
-          transform={`rotate(${d * 90} ${c} ${c})`}
-          style={{ transition: `fill 0.25s ${dl}` }}
-        />
-      ))}
-      {/* 锁图标与解锁动画 */}
+    <g>
+      <g
+        style={{
+          transform: `rotate(${rot * 90}deg)`,
+          transformOrigin: `${c}px ${c}px`,
+          transition: 'transform 0.22s ease-in-out',
+        }}
+      >
+        {/* 两个半边（触点 0 = 右半边，触点 1 = 左半边），断开处垂直于触点 */}
+        {[0, 1].map((i) => (
+          <path
+            key={i}
+            d={sector(c, c, r, r - w, i * 180 + GAP / 2, (i + 1) * 180 - GAP / 2)}
+            fill={PIPE_COLORS[el.colors[i as 0 | 1]][on ? 'on' : 'off']}
+            style={{ transition: `fill 0.25s ${dl}, d 0.2s` }}
+          />
+        ))}
+        {/* 两个对向触点（局部右、局部左） */}
+        {[1, 3].map((d, i) => (
+          <path
+            key={d}
+            d={contactUp(c, c, r, CONTACT_LEN_RATIO * s, w)}
+            fill={PIPE_COLORS[el.colors[i as 0 | 1]][on ? 'on' : 'off']}
+            transform={`rotate(${d * 90} ${c} ${c})`}
+            style={{ transition: `fill 0.25s ${dl}` }}
+          />
+        ))}
+      </g>
+      {/* 锁图标与解锁动画（不随中继器旋转） */}
       {locked && (
         <g
           style={{
@@ -219,33 +221,37 @@ export function QuadTile({
   const w = locked ? r / 3 : r / 2;
   const dl = `${delay}ms`;
   return (
-    <g
-      style={{
-        transform: `rotate(${rot * 90}deg)`,
-        transformOrigin: `${c}px ${c}px`,
-        transition: 'transform 0.22s ease-in-out',
-      }}
-    >      {/* 四象限块 */}
-      {([0, 1, 2, 3] as Dir[]).map((d) => (
-        <path
-          key={d}
-          d={sector(c, c, r, r - w, d * 90 - 45 + GAP / 2, d * 90 + 45 - GAP / 2)}
-          fill={PIPE_COLORS[el.blocks[d]][on ? 'on' : 'off']}
-          style={{ transition: `fill 0.25s ${dl}` }}
-        />
-      ))}
-      {/* 触点（局部方向） */}
-      {el.contacts.map((has, d) =>
-        has ? (
+    <g>
+      <g
+        style={{
+          transform: `rotate(${rot * 90}deg)`,
+          transformOrigin: `${c}px ${c}px`,
+          transition: 'transform 0.22s ease-in-out',
+        }}
+      >
+        {/* 四象限块 */}
+        {([0, 1, 2, 3] as Dir[]).map((d) => (
           <path
             key={d}
-            d={contactUp(c, c, r, CONTACT_LEN_RATIO * s, w)}
+            d={sector(c, c, r, r - w, d * 90 - 45 + GAP / 2, d * 90 + 45 - GAP / 2)}
             fill={PIPE_COLORS[el.blocks[d]][on ? 'on' : 'off']}
-            transform={`rotate(${d * 90} ${c} ${c})`}
             style={{ transition: `fill 0.25s ${dl}` }}
           />
-        ) : null,
-      )}
+        ))}
+        {/* 触点（局部方向） */}
+        {el.contacts.map((has, d) =>
+          has ? (
+            <path
+              key={d}
+              d={contactUp(c, c, r, CONTACT_LEN_RATIO * s, w)}
+              fill={PIPE_COLORS[el.blocks[d]][on ? 'on' : 'off']}
+              transform={`rotate(${d * 90} ${c} ${c})`}
+              style={{ transition: `fill 0.25s ${dl}` }}
+            />
+          ) : null,
+        )}
+      </g>
+      {/* 锁图标与解锁动画（不随中继器旋转） */}
       {locked && (
         <g
           style={{

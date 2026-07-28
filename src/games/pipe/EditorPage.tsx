@@ -222,6 +222,20 @@ export default function PipeEditorPage() {
     if (!el) {
       // 删除控件时同时删掉与它相连的线
       setLines((prev) => prev.filter((l) => cellKey(l.a[0], l.a[1]) !== k && cellKey(l.b[0], l.b[1]) !== k));
+    } else {
+      // 把控件放到线中间的空格：穿过该格的连接线拆成两段，分别连到该格
+      const [cx, cy] = k.split(',').map(Number);
+      setLines((prev) => {
+        const out: PipeLine[] = [];
+        for (const l of prev) {
+          if (lineMidCells(l).some(([mx, my]) => mx === cx && my === cy)) {
+            out.push({ a: l.a, b: [cx, cy] }, { a: [cx, cy], b: l.b });
+          } else {
+            out.push(l);
+          }
+        }
+        return out;
+      });
     }
   };
 
@@ -267,25 +281,31 @@ export default function PipeEditorPage() {
     const el = elements[k];
     if (tool === 'line') return;
     if (!el) return applyTool(x, y);
-    if (tool === 'key' && isRelay(el)) {
-      dirty();
-      setEl(k, { ...el, locked: !el.locked });
+    // 钥匙工具：点中继器切换上锁，点钥匙点切换颜色
+    if (tool === 'key') {
+      if (isRelay(el)) {
+        dirty();
+        setEl(k, { ...el, locked: !el.locked });
+      } else if (el.kind === 'key') {
+        dirty();
+        setEl(k, { ...el, color: cycleColor(el.color) });
+      }
       return;
     }
-    // 切换颜色 / 触点
-    if (tool === 'source' && el.kind === 'source') {
+    // 其他工具下点击已放置的控件：直接按控件类型切换颜色 / 触点（无需选中对应工具）
+    if (el.kind === 'source') {
       dirty();
       setEl(k, { ...el, color: cycleColor(el.color) });
-    } else if (tool === 'receiver' && el.kind === 'receiver' && region?.kind === 'block') {
+    } else if (el.kind === 'receiver' && region?.kind === 'block') {
       dirty();
       const blocks = el.blocks.map((b, d) => (d === region.dir ? cycleColor(b) : b));
       setEl(k, { ...el, blocks });
-    } else if (tool === 'bar' && el.kind === 'bar' && region?.kind === 'block') {
+    } else if (el.kind === 'bar' && region?.kind === 'block') {
       dirty();
       const idx = region.dir === 1 ? 0 : 1;
       const colors = el.colors.map((c, i) => (i === idx ? cycleColor(c) : c)) as [PipeColor, PipeColor];
       setEl(k, { ...el, colors });
-    } else if (tool === 'quad' && el.kind === 'quad' && region?.kind === 'block') {
+    } else if (el.kind === 'quad' && region?.kind === 'block') {
       dirty();
       if (ctrl) {
         const contacts = el.contacts.map((c, d) => (d === region.dir ? !c : c));
@@ -294,9 +314,6 @@ export default function PipeEditorPage() {
         const blocks = el.blocks.map((b, d) => (d === region.dir ? cycleColor(b) : b));
         setEl(k, { ...el, blocks });
       }
-    } else if (tool === 'key' && el.kind === 'key') {
-      dirty();
-      setEl(k, { ...el, color: cycleColor(el.color) });
     }
   };
 
@@ -310,7 +327,7 @@ export default function PipeEditorPage() {
     } else if (region.kind === 'element' || region.kind === 'block') {
       const el = elements[region.k];
       if (el?.kind === 'key') {
-        // 删除钥匙点时自动取消所有上锁状态
+        // 删除钥匙点时自动取消所有上锁状态，但不影响连接线
         setElements((prev) => {
           const next: Record<string, PipeElement> = {};
           for (const [k, e] of Object.entries(prev)) {
@@ -319,7 +336,6 @@ export default function PipeEditorPage() {
           }
           return next;
         });
-        setLines((prev) => prev.filter((l) => cellKey(l.a[0], l.a[1]) !== region.k && cellKey(l.b[0], l.b[1]) !== region.k));
       } else if (el && isRelay(el)) {
         // 删除中继器不影响连接线（留下悬空端点，由校验提示）
         dirty();
@@ -377,7 +393,9 @@ export default function PipeEditorPage() {
 
   const doRandomScramble = () => {
     const lv: PipeLevel = { ...level, elements: elementsWithRot(solRots) };
-    setScrambleRots(randomScramble(lv));
+    const next = randomScramble(lv);
+    setScrambleRots(next);
+    setAnimRots({ ...next }); // 同步刷新棋盘显示
     setTestPassed(false);
     setShareCode('');
   };

@@ -52,23 +52,23 @@ export const BUILTIN_LEVELS: PipeLevel[] = [
     cols: 3,
     elements: {
       '0,1': { kind: 'source', color: 'yellow' },
-      '0,2': { kind: 'key', color: 'yellow', dir: 0 },
       '1,1': { kind: 'bar', locked: false, colors: ['yellow', 'yellow'], rot: 0, startRot: 1 },
       '2,1': {
         kind: 'quad',
         locked: true,
-        contacts: [false, false, true, true], // 局部：下、左
+        contacts: [true, false, true, true], // 局部：上、下、左
         blocks: ['yellow', 'yellow', 'yellow', 'yellow'],
         rot: 0,
-        startRot: 1,
+        startRot: 2,
       },
       '2,2': { kind: 'receiver', blocks: ['yellow', 'yellow', 'yellow', 'yellow'] },
+      '2,0': { kind: 'key', color: 'yellow', dir: 2 },
     },
     lines: [
-      { a: [0, 1], b: [0, 2] },
       { a: [0, 1], b: [1, 1] },
       { a: [1, 1], b: [2, 1] },
       { a: [2, 1], b: [2, 2] },
+      { a: [2, 1], b: [2, 0] },
     ],
   },
 ];

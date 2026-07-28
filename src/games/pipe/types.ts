@@ -39,7 +39,8 @@ export const CONTACT_LEN_RATIO = 0.11; // 触点长（= 圆环宽度 R2/2）
 /** 元件在某方向上的最外圈半径（含触点），连接线端点用 */
 export function extentOf(kind: PipeElement['kind'], hasContact: boolean): number {
   if (kind === 'source' || kind === 'receiver') return R1;
-  return hasContact ? R2 + CONTACT_LEN_RATIO : R2;
+  // 触点尖端 = 环半径 + 触点长 + 收尾半圆半径（环宽的一半）
+  return hasContact ? R2 + CONTACT_LEN_RATIO + R2 / 4 : R2;
 }
 
 /** 角度（度，0=上，顺时针）→ 坐标 */
@@ -269,11 +270,40 @@ export function simulate(level: PipeLevel, rots: Record<string, number>): SimRes
   }
 
   // 迭代到稳定：线把电传到对端 → 中继器被点亮 → 中继器各触点放电 → 下一跳
+  // 空格里两条同向（共线）断线会接续导通
+  const cellEnds = new Map<string, { idx: number; dir: Dir }[]>();
+  ends.forEach((e, i) => {
+    cellEnds.set(e.ka, [...(cellEnds.get(e.ka) ?? []), { idx: i, dir: e.dirA }]);
+    cellEnds.set(e.kb, [...(cellEnds.get(e.kb) ?? []), { idx: i, dir: e.dirB }]);
+  });
+  const junctions: { a: number; b: number }[] = [];
+  for (const [k, list] of cellEnds) {
+    if (elements[k]) continue; // 只在空格
+    if (list.length !== 2) continue; // 恰好两条断线
+    if ((list[0].dir + 2) % 4 !== list[1].dir) continue; // 必须共线（方向相反）
+    junctions.push({ a: list[0].idx, b: list[1].idx });
+  }
+
   let hop = 0;
   let changed = true;
   while (changed && hop < 64) {
     changed = false;
     hop++;
+    // 空格接续：一条线通电，同向的另一条也通电
+    for (const j of junctions) {
+      for (const [from, to] of [
+        [j.a, j.b],
+        [j.b, j.a],
+      ] as const) {
+        for (const color of lineColors[from]) {
+          if (!lineColors[to].has(color)) {
+            lineColors[to].add(color);
+            if (lineHop[to] < 0) lineHop[to] = lineHop[from] >= 0 ? lineHop[from] : hop;
+            changed = true;
+          }
+        }
+      }
+    }
     // 中继器：任一触点收到同色电 → 整体通电，所有触点释放各自颜色的电
     for (const [k, el] of Object.entries(elements)) {
       if (!isRelay(el) || relayOn.has(k)) continue;
@@ -364,13 +394,33 @@ export function validatePipeLevel(level: PipeLevel): string[] {
     if (el.kind === 'quad') errors.push(...validateQuad(el));
   }
 
-  // 连接线：同行/列、端点有控件、中间无控件、不重复
+  // 连接线：同行/列、端点有控件（或恰好两条共线断线接续的空格）、中间无控件、不重复
+  const endCount = new Map<string, number[]>();
+  lines.forEach((l, i) => {
+    const ka = cellKey(l.a[0], l.a[1]);
+    const kb = cellKey(l.b[0], l.b[1]);
+    endCount.set(ka, [...(endCount.get(ka) ?? []), i]);
+    endCount.set(kb, [...(endCount.get(kb) ?? []), i]);
+  });
   const seen = new Set<string>();
   lines.forEach((l, i) => {
     if (l.a[0] !== l.b[0] && l.a[1] !== l.b[1]) errors.push(`第 ${i + 1} 条连接线必须水平或竖直`);
     if (l.a[0] === l.b[0] && l.a[1] === l.b[1]) errors.push(`第 ${i + 1} 条连接线两端相同`);
-    if (!elements[cellKey(l.a[0], l.a[1])] || !elements[cellKey(l.b[0], l.b[1])]) {
-      errors.push(`第 ${i + 1} 条连接线的端点上没有控件`);
+    // 端点是空格时，必须恰好是两条共线断线的接续格
+    for (const [c, from] of [
+      [l.a, l.b],
+      [l.b, l.a],
+    ] as [Cell, Cell][]) {
+      const k = cellKey(c[0], c[1]);
+      if (elements[k]) continue;
+      const others = (endCount.get(k) ?? []).filter((j) => j !== i);
+      let ok = false;
+      if (others.length === 1) {
+        const ol = lines[others[0]];
+        const od = cellKey(ol.a[0], ol.a[1]) === k ? dirToward(ol.a, ol.b) : dirToward(ol.b, ol.a);
+        ok = (od + 2) % 4 === dirToward(c, from);
+      }
+      if (!ok) errors.push(`第 ${i + 1} 条连接线的端点上没有控件`);
     }
     for (const [x, y] of lineMidCells(l)) {
       if (elements[cellKey(x, y)]) errors.push(`第 ${i + 1} 条连接线中间有控件阻挡`);
@@ -427,9 +477,10 @@ export function validatePipeLevel(level: PipeLevel): string[] {
   return [...new Set(errors)];
 }
 
-/** 打乱后的开局朝向不是已通关状态（否则玩家进入直接通关） */
+/** 打乱后的开局朝向不是已通关状态，且钥匙点不能已经通电（否则玩家进入直接通关/直接解锁） */
 export function scrambledOk(level: PipeLevel, startRots: Record<string, number>): boolean {
-  return !simulate(level, startRots).done;
+  const sim = simulate(level, startRots);
+  return !sim.done && sim.keyOn.size === 0;
 }
 
 /** 一键随机打乱：随机所有未上锁中继器的朝向（上锁的只能手动调整），直到不是通关状态 */

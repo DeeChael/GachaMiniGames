@@ -43,22 +43,23 @@ export function PipeGame({
   const unlockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sim = useMemo(() => simulate(level, rots), [level, rots]);
-  // 钥匙点通电后：所有上锁中继器永久解锁
-  const unlocked = sim.keyOn.size > 0;
+  // 钥匙点一旦通电解锁，所有上锁中继器永久解锁（锁图标永久消失）
+  const [unlockedOnce, setUnlockedOnce] = useState(false);
 
   useEffect(() => {
-    if (unlocked && !unlocking) {
+    if (sim.keyOn.size > 0 && !unlockedOnce) {
+      setUnlockedOnce(true);
       setUnlocking(true);
       unlockTimer.current = setTimeout(() => setUnlocking(false), 500);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [unlocked]);
+  }, [sim.keyOn.size, unlockedOnce]);
   useEffect(
     () => () => {
       if (unlockTimer.current) clearTimeout(unlockTimer.current);
     },
     [],
   );
+  const unlocked = unlockedOnce;
 
   // 通关：等过电动画走完再弹出
   const maxHop = Math.max(0, ...sim.lineHop);
@@ -72,6 +73,7 @@ export function PipeGame({
   const reset = () => {
     setRots(startRotsOf(level));
     setWon(false);
+    setUnlockedOnce(false);
   };
 
   // R 重置
@@ -176,9 +178,18 @@ export function PipeGame({
         {Object.values(level.elements).some((e) => isRelay(e) && e.locked) && '；先把电通到钥匙点解锁上锁的中继器'}
       </div>
 
-      {/* 棋盘（游玩时不显示格子线） */}
+      {/* 棋盘（游玩时不显示格子线；点击中继器所在格任意位置都可旋转） */}
       <div className="rounded-lg border border-[#1e3a3a] bg-[#0d2424] p-3" style={{ boxShadow: '0 0 50px rgba(0,0,0,0.6), inset 0 0 40px rgba(10,40,40,0.4)' }}>
-        <svg width={boardW} height={boardH}>
+        <svg
+          width={boardW}
+          height={boardH}
+          onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const cx = Math.floor((e.clientX - rect.left) / cs);
+            const cy = Math.floor((e.clientY - rect.top) / cs);
+            if (cx >= 0 && cy >= 0 && cx < cols && cy < rows) rotateRelay(cellKey(cx, cy));
+          }}
+        >
           {/* 连接线 */}
           {level.lines.map((l, i) => {
             const ka = cellKey(l.a[0], l.a[1]);
@@ -208,12 +219,7 @@ export function PipeGame({
             const delay = delayOf(k);
             const rotatable = isRelay(el) && (!el.locked || unlocked);
             return (
-              <g
-                key={k}
-                transform={`translate(${x * cs}, ${y * cs})`}
-                onClick={() => rotateRelay(k)}
-                style={{ cursor: rotatable ? 'pointer' : 'default' }}
-              >
+              <g key={k} transform={`translate(${x * cs}, ${y * cs})`} style={{ cursor: rotatable ? 'pointer' : 'default' }}>
                 {el.kind === 'source' && <SourceTile s={cs} el={el} powered={sourceOn(k)} />}
                 {el.kind === 'receiver' && (
                   <ReceiverTile
