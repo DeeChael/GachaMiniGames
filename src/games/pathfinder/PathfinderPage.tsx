@@ -7,8 +7,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import type { Cell, Dir, PathLevel } from './types';
-import { DIRS, C, canPass, cellKey, kindAt, tubeAt } from './types';
-import { CellBase, CheckpointTile, DenyTile, DestTile, GlowOverlay, PathArrow, RotateTile, StartTile, TubeTile } from './Tiles';
+import { DIRS, canPass, cellKey, kindAt, tubeAt } from './types';
+import { CellBase, CheckpointIcon, CheckpointTile, DenyTile, DestTile, GlowOverlay, PathArrow, RotateTile, StartTile, TubeTile } from './Tiles';
 import { BUILTIN_LEVELS } from './levels';
 import { decodePathLevel, encodePathLevel } from './shareCode';
 
@@ -157,17 +157,10 @@ export function PathfinderGame({
       {/* 检查点计数（没有检查点时不显示） */}
       {level.checkpoints.length > 0 && (
         <div className="mb-4 flex items-center gap-2 border border-[#f5a623]/40 bg-[#121917] px-4 py-1.5">
-        <svg viewBox="0 0 24 24" style={{ width: 16, height: 16 }}>
-          <g stroke={C.orange} strokeWidth={2.6} strokeLinecap="round">
-            <path d="M5 5 L19 19 M19 5 L5 19" />
-          </g>
-          <g fill={C.orange}>
-            <circle cx="5" cy="5" r="2" /><circle cx="19" cy="5" r="2" /><circle cx="5" cy="19" r="2" /><circle cx="19" cy="19" r="2" />
-          </g>
-        </svg>
-        <span className="text-base font-bold text-[#f5a623]">
-          {String(passedCheckpoints).padStart(2, '0')}/{String(level.checkpoints.length).padStart(2, '0')}
-        </span>
+          <CheckpointIcon size={18} />
+          <span className="text-base font-bold text-[#f5a623]">
+            {String(passedCheckpoints).padStart(2, '0')}/{String(level.checkpoints.length).padStart(2, '0')}
+          </span>
         </div>
       )}
 

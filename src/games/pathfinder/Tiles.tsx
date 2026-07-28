@@ -1,13 +1,35 @@
 // ============================================================
-// 邦布维修 2.0 —— 方块渲染（游戏页与编辑器共用，全部自绘）
+// 邦布维修 2.0 —— 方块渲染（游戏页与编辑器共用）
 // 底板：深色圆角方块，普通格四角有 L 型装饰；经过的格子亮蓝；
 // 当前格有从边缘朝内的白色辉光（GlowOverlay 覆盖渲染）
+// 检查点 / 禁止方块 / L 管使用 src/games/pathfinder/assets 下的
+// SVG 图标（?raw 内联，按需替换填充色）
 // ============================================================
 
-import type { CSSProperties } from 'react';
+import { useMemo, type CSSProperties } from 'react';
+import { useId } from 'react';
 import { C } from './types';
+import checkpointRaw from './assets/checkpoint.svg?raw';
+import denyRaw from './assets/deny.svg?raw';
+import lTubeRaw from './assets/l_tube.svg?raw';
 
 const abs: CSSProperties = { position: 'absolute', inset: 0 };
+
+/** 替换 SVG 里的颜色，并给 mask id 加实例前缀（同一页面多个实例避免 id 冲突）；尺寸限制在容器内 */
+function useSvg(raw: string, from: string, to: string): string {
+  const uid = useId().replace(/:/g, '');
+  return useMemo(
+    () =>
+      raw
+        .replace('width="256" height="256"', 'width="100%" height="100%"')
+        .split(from).join(to)
+        .replaceAll('id="cut"', `id="cut${uid}"`)
+        .replaceAll('url(#cut)', `url(#cut${uid})`)
+        .replaceAll('id="detail"', `id="detail${uid}"`)
+        .replaceAll('url(#detail)', `url(#detail${uid})`),
+    [raw, from, to, uid],
+  );
+}
 
 /** 四角 L 型装饰（普通方格用；right/bottom 定位保证四边边距一致） */
 function CornerBrackets({ s, color }: { s: number; color: string }) {
@@ -94,48 +116,41 @@ export function DestTile({ s, arrived }: { s: number; arrived: boolean }) {
   );
 }
 
-/** 检查点：橙色圆角方块 + 深色星号（× 加四端圆点）；passed = 已经过（更亮） */
+/** 检查点：深色底方格 + 0.8 倍 assets/checkpoint.svg；经过后底格变橙、图标变深色 */
 export function CheckpointTile({ s, passed }: { s: number; passed: boolean }) {
-  const bg = passed ? '#ffcf6a' : C.orange;
-  const fg = '#6a3a08';
+  const html = useSvg(checkpointRaw, '#B97823', passed ? '#101113' : '#B97823');
+  const size = s * 0.65;
   return (
-    <div style={{ ...abs, background: bg, borderRadius: Math.max(4, s * 0.1), transition: 'background 0.2s' }}>
-      <svg viewBox="0 0 24 24" style={{ ...abs, width: '100%', height: '100%', padding: '14%' }}>
-        <g stroke={fg} strokeWidth={2.6} strokeLinecap="round">
-          <path d="M5 5 L19 19 M19 5 L5 19" />
-        </g>
-        <g fill={fg}>
-          <circle cx="5" cy="5" r="2" />
-          <circle cx="19" cy="5" r="2" />
-          <circle cx="5" cy="19" r="2" />
-          <circle cx="19" cy="19" r="2" />
-        </g>
-      </svg>
+    <div
+      style={{
+        ...abs,
+        background: passed ? '#bd8723' : '#3d241f',
+        borderRadius: Math.max(4, s * 0.1),
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transition: 'background 0.2s',
+      }}
+    >
+      <div style={{ width: size, height: size }} dangerouslySetInnerHTML={{ __html: html }} />
     </div>
   );
 }
 
-/** 禁止方块：内圈边线 + 指向四角的四个粗箭头 */
+/** 禁止方块：assets/deny.svg（内圈边线 + 四个粗箭头） */
 export function DenyTile() {
-  const col = C.deny;
+  const html = useSvg(denyRaw, '#263036', C.deny);
+  return <div style={abs} dangerouslySetInnerHTML={{ __html: html }} />;
+}
+
+/** 检查点小图标（HUD 计数用），自带颜色 */
+export function CheckpointIcon({ size }: { size: number }) {
+  const html = useSvg(checkpointRaw, '#B97823', C.orange);
   return (
-    <svg viewBox="0 0 24 24" style={{ ...abs, width: '100%', height: '100%', padding: '10%' }}>
-      {/* 与方格有一点边距的边线 */}
-      <rect x="1" y="1" width="22" height="22" rx="3" fill="none" stroke={col} strokeWidth={1.4} />
-      {/* 四个指向角落的粗箭头 */}
-      <g stroke={col} strokeWidth={3.2} strokeLinecap="round">
-        <path d="M12 12 L5.5 5.5" />
-        <path d="M12 12 L18.5 5.5" />
-        <path d="M12 12 L5.5 18.5" />
-        <path d="M12 12 L18.5 18.5" />
-      </g>
-      <g fill={col}>
-        <path d="M4 4 L8.2 4.6 L4.6 8.2 Z" />
-        <path d="M20 4 L15.8 4.6 L19.4 8.2 Z" />
-        <path d="M4 20 L8.2 19.4 L4.6 15.8 Z" />
-        <path d="M20 20 L15.8 19.4 L19.4 15.8 Z" />
-      </g>
-    </svg>
+    <div
+      style={{ width: size, height: size, borderRadius: size * 0.15, overflow: 'hidden', flexShrink: 0 }}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
   );
 }
 
@@ -156,10 +171,11 @@ export function RotateTile({ passed }: { passed: boolean }) {
   );
 }
 
-/** 管道方块：直管 / L 管（转角带弧度）；宽度 = 方格的 1/3；可旋转，带旋转动画 */
+/** 管道方块：直管 / L 管（assets/l_tube.svg）；宽度 = 方格的 1/3；可旋转，带旋转动画 */
 export function TubeTile({ s, kind, rot, passed }: { s: number; kind: 'tube' | 'ltube'; rot: number; passed: boolean }) {
   const col = passed ? C.tubePassed : C.tube;
   const w = s / 3;
+  const html = useSvg(lTubeRaw, '#1A6884', col);
   return (
     <div
       style={{
@@ -173,15 +189,7 @@ export function TubeTile({ s, kind, rot, passed }: { s: number; kind: 'tube' | '
         <div style={{ position: 'absolute', background: col, left: 0, right: 0, top: (s - w) / 2, height: w, transition: 'background 0.2s' }} />
       ) : (
         // L 管：上 + 右（rot 0），转角为圆弧
-        <svg viewBox={`0 0 ${s} ${s}`} style={{ ...abs, width: '100%', height: '100%' }}>
-          <path
-            d={`M${s / 2},0 L${s / 2},${s / 2 - w / 2} A${w / 2},${w / 2} 0 0 1 ${s / 2 + w / 2},${s / 2} L${s},${s / 2}`}
-            fill="none"
-            stroke={col}
-            strokeWidth={w}
-            style={{ transition: 'stroke 0.2s' }}
-          />
-        </svg>
+        <div style={abs} dangerouslySetInnerHTML={{ __html: html }} />
       )}
     </div>
   );

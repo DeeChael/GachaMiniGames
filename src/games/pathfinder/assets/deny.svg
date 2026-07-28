@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 133 133" width="256" height="256">
+  <rect x="11" y="11" width="111" height="111" rx="12" fill="none" stroke="#263036" stroke-width="7"/>
+  <!-- 用同色描边+round连接实现所有角的圆角效果 -->
+  <g fill="#263036" stroke="#263036" stroke-width="5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M21.0,21.0L21.7,44.3L27.0,39.0L60.5,72.5L72.5,60.5L39.0,27.0L44.3,21.7Z"/>
+    <path d="M112.0,112.0L111.3,88.7L106.0,94.0L72.5,60.5L60.5,72.5L94.0,106.0L88.7,111.3Z"/>
+    <path d="M112.0,21.0L88.7,21.7L94.0,27.0L60.5,60.5L72.5,72.5L106.0,39.0L111.3,44.3Z"/>
+    <path d="M21.0,112.0L44.3,111.3L39.0,106.0L72.5,72.5L60.5,60.5L27.0,94.0L21.7,88.7Z"/>
+  </g>
+</svg>
