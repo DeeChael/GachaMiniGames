@@ -12,6 +12,8 @@ import SrPuzzlePage from './games/sr_puzzle/SrPuzzlePage';
 import SrPuzzleEditorPage from './games/sr_puzzle/EditorPage';
 import PipePage from './games/pipe/PipePage';
 import PipeEditorPage from './games/pipe/EditorPage';
+import PathfinderPage from './games/pathfinder/PathfinderPage';
+import PathfinderEditorPage from './games/pathfinder/EditorPage';
 
 // 顶栏菜单：按二游分组，选项显示游戏 logo，悬停下拉显示小游戏名称
 interface NavGame {
@@ -40,7 +42,10 @@ const NAV_MENU: NavGame[] = [
   {
     game: '绝区零',
     logo: `${import.meta.env.BASE_URL}logos/zzz.png`,
-    items: [{ name: '邦布维修', path: '/pipe' }],
+    items: [
+      { name: '邦布维修', path: '/pipe' },
+      { name: '邦布维修 2.0', path: '/pathfinder' },
+    ],
   },
   {
     game: '鸣潮',
@@ -64,7 +69,7 @@ export default function App() {
   const theme =
     pathname.startsWith('/platjump') || pathname.startsWith('/sr_puzzle')
       ? THEMES.starrail
-      : pathname.startsWith('/pipe')
+      : pathname.startsWith('/pipe') || pathname.startsWith('/pathfinder')
         ? THEMES.zzz
         : pathname.startsWith('/colorfill')
           ? THEMES.wuwa
@@ -147,6 +152,8 @@ export default function App() {
         <Route path="/sr_puzzle/editor" element={<SrPuzzleEditorPage />} />
         <Route path="/pipe" element={<PipePage />} />
         <Route path="/pipe/editor" element={<PipeEditorPage />} />
+        <Route path="/pathfinder" element={<PathfinderPage />} />
+        <Route path="/pathfinder/editor" element={<PathfinderEditorPage />} />
       </Routes>
     </div>
   );

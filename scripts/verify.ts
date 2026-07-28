@@ -20,6 +20,9 @@ import { validateSrLevel } from '../src/games/sr_puzzle/types';
 import { BUILTIN_LEVELS as PIPE_LEVELS } from '../src/games/pipe/levels';
 import { decodePipeLevel, encodePipeLevel } from '../src/games/pipe/shareCode';
 import { isRelay, scrambledOk, simulate, validatePipeLevel } from '../src/games/pipe/types';
+import { BUILTIN_LEVELS as PATH_LEVELS } from '../src/games/pathfinder/levels';
+import { decodePathLevel, encodePathLevel } from '../src/games/pathfinder/shareCode';
+import { validatePathLevel } from '../src/games/pathfinder/types';
 import {
   cellKey as bCellKey,
   netLift,
@@ -206,6 +209,16 @@ for (const lv of PIPE_LEVELS) {
     `邦布维修「${lv.name}」: ${errs.length ? 'INVALID ' + errs.join(',') : 'valid'} 通路=${solOk} 已打乱=${scrambled} 分享码往返=${roundtrip ? 'OK' : 'MISMATCH'}`,
   );
   if (errs.length || !solOk || !scrambled || !roundtrip) fail++;
+}
+
+// 9. 邦布维修 2.0 内置关卡：结构合法（含 DFS 可解性）+ 分享码往返
+for (const lv of PATH_LEVELS) {
+  const errs = validatePathLevel(lv);
+  const code = encodePathLevel(lv);
+  const back = decodePathLevel(code);
+  const roundtrip = canonical(back) === canonical(lv);
+  console.log(`寻路「${lv.name}」: ${errs.length ? 'INVALID ' + errs.join(',') : 'valid'} 分享码往返=${roundtrip ? 'OK' : 'MISMATCH'}`);
+  if (errs.length || !roundtrip) fail++;
 }
 
 console.log(fail === 0 ? '\n全部通过 ✓' : `\n失败 ${fail} 项 ✗`);

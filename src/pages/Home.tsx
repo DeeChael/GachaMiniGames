@@ -6,6 +6,7 @@ import { decodePlatLevel } from '../games/platjump/shareCode';
 import { decodeFillLevel } from '../games/colorfill/shareCode';
 import { decodeSrLevel } from '../games/sr_puzzle/shareCode';
 import { decodePipeLevel } from '../games/pipe/shareCode';
+import { decodePathLevel } from '../games/pathfinder/shareCode';
 
 interface GameEntry {
   name: string;
@@ -49,6 +50,13 @@ const GAMES: GameEntry[] = [
     game: '绝区零',
     logo: `${import.meta.env.BASE_URL}logos/zzz.png`,
     path: '/pipe',
+    ready: true,
+  },
+  {
+    name: '邦布维修 2.0',
+    game: '绝区零',
+    logo: `${import.meta.env.BASE_URL}logos/zzz.png`,
+    path: '/pathfinder',
     ready: true,
   },
   {
@@ -127,7 +135,16 @@ export default function Home() {
       }
       return;
     }
-    setCodeError('无法识别的分享码（支持 EPZ2_ / EBL1_ / SPJ2_ / WCF1_ / SPZ1_ / ZBP1_ 开头）');
+    if (v.startsWith('ZPF1_')) {
+      try {
+        decodePathLevel(v);
+        navigate(`/pathfinder?code=${encodeURIComponent(v)}`);
+      } catch (e) {
+        setCodeError((e as Error).message);
+      }
+      return;
+    }
+    setCodeError('无法识别的分享码（支持 EPZ2_ / EBL1_ / SPJ2_ / WCF1_ / SPZ1_ / ZBP1_ / ZPF1_ 开头）');
   };
 
   return (
