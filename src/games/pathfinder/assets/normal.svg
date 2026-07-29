@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 130 133" width="260" height="266">
+  <!-- 四角L装饰：直线+圆角(端点与拐角) -->
+  <g fill="none" stroke="#0D4A64" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M46,23 L20,23 L20,49"/>
+    <path d="M84,23 L110,23 L110,49"/>
+    <path d="M46,110 L20,110 L20,84"/>
+    <path d="M84,110 L110,110 L110,84"/>
+  </g>
+</svg>

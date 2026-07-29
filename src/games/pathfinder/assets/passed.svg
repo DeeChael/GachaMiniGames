@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 130 133" width="260" height="266">
+  <!-- 四角L装饰：缩短臂长至20，线宽加至10，外角位置不变向内加粗 -->
+  <g fill="none" stroke="#0D4A64" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M40,23 L20,23 L20,43"/>
+    <path d="M90,23 L110,23 L110,43"/>
+    <path d="M40,110 L20,110 L20,90"/>
+    <path d="M90,110 L110,110 L110,90"/>
+  </g>
+</svg>

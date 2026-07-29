@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 129 132" width="258" height="264">
+  <g fill="#136282">
+    <!-- 圆环切掉右下四分之一：外R47 内r19，环宽28 -->
+    <path d="M63,110 A47,47 0 1 1 110,63 L82,63 A19,19 0 1 0 63,82 Z"/>
+    <!-- 扁圆角三角形箭头，底边中点对齐断面中点(96,63) -->
+    <path d="M73,63 L119,63 L96,88 Z" stroke="#136282" stroke-width="5"
+          stroke-linejoin="round"/>
+  </g>
+</svg>
