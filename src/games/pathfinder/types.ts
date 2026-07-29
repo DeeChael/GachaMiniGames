@@ -122,8 +122,7 @@ export function validatePathLevel(level: PathLevel): string[] {
   claim(level.rotates, '旋转按钮');
   claim(level.tubes.map((t) => t.pos), '管道');
 
-  // 必须可解
-  if (errors.length === 0 && !solvable(level)) errors.push('关卡无解，无法从起点经过所有检查点到达终点');
+  // 注：不做可解性检测——编辑器要求试玩通过后才能分享，可解性由玩家试玩验证
   return [...new Set(errors)];
 }
 

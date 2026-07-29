@@ -34,7 +34,7 @@ export function PipeGame({
   level: PipeLevel;
   test?: boolean; // 编辑器试玩模式：通关后返回编辑器解锁分享码
   onExit: () => void;
-  onBackToEditor?: () => void;
+  onBackToEditor?: (passed: boolean) => void;
 }) {
   const { rows, cols } = level;
   const [rots, setRots] = useState<Record<string, number>>(() => startRotsOf(level));
@@ -162,7 +162,7 @@ export function PipeGame({
             ↺ 重置 (R)
           </button>
           {test ? (
-            <button onClick={onBackToEditor} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
+            <button onClick={() => onBackToEditor?.(false)} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
               ← 返回编辑器
             </button>
           ) : (
@@ -253,7 +253,7 @@ export function PipeGame({
             <div className="flex justify-center gap-3">
               {test ? (
                 <button
-                  onClick={onBackToEditor}
+                  onClick={() => onBackToEditor?.(true)}
                   className="border border-[#7cee94]/60 bg-[#7cee94]/10 px-5 py-2.5 text-sm text-[#7cee94] hover:bg-[#7cee94]/20"
                 >
                   ✓ 试玩通过，返回编辑器
@@ -321,7 +321,7 @@ export default function PipePage() {
           setTest(false);
           setEditorState(null);
         }}
-        onBackToEditor={() => navigate('/pipe/editor', { state: { editor: editorState } })}
+        onBackToEditor={(passed) => navigate('/pipe/editor', { state: { editor: editorState, passed } })}
       />
     );
   }

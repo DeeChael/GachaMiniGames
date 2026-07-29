@@ -85,7 +85,8 @@ export default function PipeEditorPage() {
   const [step, setStep] = useState<'arrange' | 'scramble'>(init?.editor.step ?? 'arrange');
   const [solRots, setSolRots] = useState<Record<string, number>>(init?.editor.solRots ?? {});
   const [scrambleRots, setScrambleRots] = useState<Record<string, number>>(init?.editor.scrambleRots ?? {});
-  const [testPassed, setTestPassed] = useState(init?.editor.testPassed ?? init?.passed ?? false);
+  // 试玩通关返回时 init.passed 为 true；编辑器状态里的 testPassed 是保存的历史值，passed 优先
+  const [testPassed, setTestPassed] = useState(!!(init?.passed || init?.editor.testPassed));
   // 显示用的累计旋转角（驱动连续向前的旋转动画；逻辑朝向另存为 0~3）
   const [animRots, setAnimRots] = useState<Record<string, number>>(init?.editor.scrambleRots ?? {});
 
@@ -750,8 +751,9 @@ export default function PipeEditorPage() {
               <input
                 value={name}
                 onChange={(e) => {
+                  // 只改名称不影响玩法，不用重新试玩；但已生成的分享码含旧名称，需重新生成
                   setName(e.target.value.slice(0, 24));
-                  dirty();
+                  setShareCode('');
                 }}
                 className="w-full border border-neutral-800 bg-[#121917] px-4 py-2.5 text-base outline-none focus:border-[#7cee94]/50"
               />

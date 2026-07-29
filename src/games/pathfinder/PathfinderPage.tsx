@@ -31,7 +31,7 @@ export function PathfinderGame({
   level: PathLevel;
   test?: boolean; // 编辑器试玩模式：通关后返回编辑器解锁分享码
   onExit: () => void;
-  onBackToEditor?: () => void;
+  onBackToEditor?: (passed: boolean) => void;
 }) {
   const { rows, cols } = level;
   const [path, setPath] = useState<Cell[]>(() => [[...level.start]]);
@@ -143,7 +143,7 @@ export function PathfinderGame({
             ↺ 重置 (R)
           </button>
           {test ? (
-            <button onClick={onBackToEditor} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
+            <button onClick={() => onBackToEditor?.(false)} className="border border-neutral-700 px-4 py-2 text-sm text-neutral-400 hover:border-neutral-500 hover:text-neutral-200">
               ← 返回编辑器
             </button>
           ) : (
@@ -221,7 +221,7 @@ export function PathfinderGame({
             <div className="flex justify-center gap-3">
               {test ? (
                 <button
-                  onClick={onBackToEditor}
+                  onClick={() => onBackToEditor?.(true)}
                   className="border border-[#19d8a0]/60 bg-[#19d8a0]/10 px-5 py-2.5 text-sm text-[#19d8a0] hover:bg-[#19d8a0]/20"
                 >
                   ✓ 试玩通过，返回编辑器
@@ -289,7 +289,7 @@ export default function PathfinderPage() {
           setTest(false);
           setEditorState(null);
         }}
-        onBackToEditor={() => navigate('/pathfinder/editor', { state: { editor: editorState } })}
+        onBackToEditor={(passed) => navigate('/pathfinder/editor', { state: { editor: editorState, passed } })}
       />
     );
   }
@@ -340,9 +340,6 @@ export default function PathfinderPage() {
                 className="border border-neutral-800 bg-[#121917] px-5 py-5 text-left hover:border-[#19d8a0]/50"
               >
                 <div className="text-base text-neutral-200">{lv.name}</div>
-                <div className="mt-2 text-xs text-neutral-600">
-                  {lv.cols}×{lv.rows} · {lv.checkpoints.length} 检查点 · {lv.tubes.length} 管道
-                </div>
               </button>
             ))}
           </div>
