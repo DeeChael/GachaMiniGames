@@ -1,52 +1,26 @@
 // ============================================================
 // 邦布维修 2.0 —— 内置关卡
-// scripts/verify.ts 会用 DFS 复核可解性
+// 来自 references/zzz-pathfinder/pathfinder-presets.md 的分享码
 // ============================================================
 
 import type { PathLevel } from './types';
+import { decodePathLevel } from './shareCode';
 
-export const BUILTIN_LEVELS: PathLevel[] = [
-  {
-    name: '初次寻路',
-    rows: 4,
-    cols: 4,
-    start: [0, 0],
-    dest: [3, 3],
-    denies: [[1, 1], [2, 1], [1, 3]],
-    checkpoints: [[1, 2]],
-    rotates: [],
-    tubes: [],
-  },
-  {
-    name: '旋转走廊',
-    rows: 5,
-    cols: 5,
-    start: [0, 0],
-    dest: [4, 4],
-    denies: [[0, 2], [2, 1], [3, 1], [0, 3]],
-    checkpoints: [[4, 0]],
-    rotates: [[2, 2]],
-    tubes: [
-      // 直管：默认竖直，踩下旋转按钮后变水平
-      { pos: [2, 3], kind: 'tube', rot: 1 },
-      // L 管：默认上+右，旋转后变左+下
-      { pos: [3, 3], kind: 'ltube', rot: 1 },
-    ],
-  },
-  {
-    name: '机关重重',
-    rows: 5,
-    cols: 5,
-    start: [0, 4],
-    dest: [4, 0],
-    denies: [[1, 1], [3, 2], [3, 3]],
-    checkpoints: [[0, 0], [4, 4]],
-    rotates: [[2, 2]],
-    tubes: [
-      // L 管：左+下（在旋转按钮之前经过）
-      { pos: [2, 0], kind: 'ltube', rot: 2 },
-      // 直管：默认水平，踩下旋转按钮后变竖直
-      { pos: [4, 2], kind: 'tube', rot: 0 },
-    ],
-  },
+const PRESET_CODES = [
+  'ZPF1_eyJ2IjoxLCJuIjoi6IO95rqQ5Yy6IDAxIiwiciI6NSwiYyI6Niwic3AiOiIwLDAiLCJkcyI6IjQsMyIsImQiOiIyLDA7MCwxOzMsMyIsImsiOiIxLDM7MSw0OzMsNCIsInJvIjoiMCw0OzIsNDs0LDQ7NSwyIiwidCI6IjEsMSwxLDA7NCwxLDEsMzs0LDIsMSwyOzEsMiwxLDE7MywyLDAsMDsyLDIsMCwwOzIsMSwwLDA7MywxLDAsMCJ9',
+  'ZPF1_eyJ2IjoxLCJuIjoi6IO95rqQ5Yy6IDAyIiwiciI6NSwiYyI6Niwic3AiOiIwLDAiLCJkcyI6IjUsNCIsImQiOiIwLDI7MSwyOzUsMjszLDMiLCJrIjoiMiw0OzMsNDs1LDAiLCJybyI6IjEsMDsxLDE7MCwxOzIsMTszLDE7NCwxIiwidCI6IjQsMCwwLDE7MywwLDAsMTsyLDAsMCwxOzIsMiwwLDE7MywyLDAsMTs0LDIsMCwxOzUsMSwxLDAifQ',
+  'ZPF1_eyJ2IjoxLCJuIjoi6IO95rqQ5Yy6IDAzIiwiciI6NSwiYyI6Niwic3AiOiIwLDAiLCJkcyI6IjMsMiIsImQiOiI0LDQ7NSw0OzEsNDswLDQ7NCwyOzAsMTszLDAiLCJrIjoiMiw0OzIsMDs1LDIiLCJybyI6IiIsInQiOiI1LDEsMSwyOzMsMSwxLDE7NCwxLDAsMCJ9',
+  'ZPF1_eyJ2IjoxLCJuIjoi566X5p6i5bGAIDAxIiwiciI6NSwiYyI6Niwic3AiOiIwLDAiLCJkcyI6IjAsMiIsImQiOiIyLDEiLCJrIjoiMSwyOzIsMyIsInJvIjoiNCwzIiwidCI6IjEsMCwxLDE7MSwzLDEsMTsxLDQsMSwwOzUsNCwxLDM7NSwwLDEsMjsyLDAsMCwwOzMsMCwwLDA7NCwwLDAsMDs1LDEsMCwxOzUsMiwwLDE7NSwzLDAsMTsyLDQsMCwwOzMsNCwwLDA7NCw0LDAsMDsyLDIsMCwxIn0=',
+  'ZPF1_eyJ2IjoxLCJuIjoi566X5p6i5bGAIDAyIiwiciI6NSwiYyI6Niwic3AiOiIwLDAiLCJkcyI6IjUsMCIsImQiOiIxLDE7NCwxOzQsNDsxLDQiLCJrIjoiNCwwOzQsMzszLDQiLCJybyI6IjIsNCIsInQiOiIyLDMsMSwyOzMsMywxLDA7MywyLDEsMzsyLDIsMSwzIn0=',
+  'ZPF1_eyJ2IjoxLCJuIjoi566X5p6i5bGAIDAzIiwiciI6NSwiYyI6Niwic3AiOiIwLDAiLCJkcyI6IjEsMCIsImQiOiI0LDA7NSwwOzUsMTs1LDI7NSwzOzUsNDs0LDQ7NCwzOzMsMzsyLDM7MiwxIiwiayI6IjMsMDs0LDE7MywyOzEsNCIsInJvIjoiIiwidCI6IiJ9',
+  'ZPF1_eyJ2IjoxLCJuIjoi566X5p6i5bGAIDA0IiwiciI6NSwiYyI6Niwic3AiOiIzLDAiLCJkcyI6IjMsNCIsImQiOiI1LDM7NSw0OzQsNDswLDE7MCwyOzAsMzswLDQiLCJrIjoiMSwxOzEsMzs0LDIiLCJybyI6IjIsMyIsInQiOiIyLDIsMSwwOzMsMywxLDA7Miw0LDEsMiJ9',
+  'ZPF1_eyJ2IjoxLCJuIjoi5rKJ5rKh5Zue5buKIDAxIiwiciI6NSwiYyI6Niwic3AiOiIyLDAiLCJkcyI6IjMsMCIsImQiOiIiLCJrIjoiMSw0OzIsNDszLDQ7NCw0Iiwicm8iOiIwLDE7MCwyOzEsMjsyLDI7MywyOzQsMjs1LDI7MiwxOzQsMSIsInQiOiI1LDMsMCwwOzQsMywwLDA7MywzLDAsMDsyLDMsMCwxOzEsMywwLDA7MCwzLDAsMSJ9',
+  'ZPF1_eyJ2IjoxLCJuIjoi5rKJ5rKh5Zue5buKIDAyIiwiciI6NSwiYyI6Niwic3AiOiIwLDIiLCJkcyI6IjUsNCIsImQiOiIiLCJrIjoiMCwzOzAsMTs1LDEiLCJybyI6IjMsMjszLDA7MCwwOzAsNDszLDQiLCJ0IjoiMSw0LDAsMTsyLDQsMCwxOzQsNCwwLDE7NCwyLDAsMTs1LDIsMCwxOzEsMiwwLDE7MiwyLDAsMTsxLDAsMCwxOzIsMCwwLDE7NCwwLDAsMTs1LDAsMCwxIn0',
+  'ZPF1_eyJ2IjoxLCJuIjoi5rKJ5rKh5Zue5buKIDAzIiwiciI6NSwiYyI6Niwic3AiOiIwLDEiLCJkcyI6IjUsMSIsImQiOiIwLDQ7MSw0OzIsNDszLDQ7NCw0OzUsNDs0LDE7MywxIiwiayI6IjQsMDszLDI7MiwzIiwicm8iOiIxLDE7MSwzOzQsMyIsInQiOiI0LDIsMSwzOzEsMiwxLDI7MywzLDAsMDsyLDEsMCwwIn0',
+  'ZPF1_eyJ2IjoxLCJuIjoi5biD5Lqa5pav54m55Z-O5Yy6IDAxIiwiciI6NSwiYyI6Niwic3AiOiIwLDAiLCJkcyI6IjEsMCIsImQiOiIyLDM7MywzOzIsMTszLDEiLCJrIjoiNCwwOzAsMTsxLDM7NCw0Iiwicm8iOiIiLCJ0IjoiMiwyLDAsMDszLDIsMCwwIn0',
+  'ZPF1_eyJ2IjoxLCJuIjoi5biD5Lqa5pav54m55Z-O5Yy6IDAyIiwiciI6NSwiYyI6Niwic3AiOiIwLDAiLCJkcyI6IjEsMCIsImQiOiI0LDQ7Myw0OzIsNCIsImsiOiI0LDI7MiwyIiwicm8iOiIzLDI7MiwzOzQsMyIsInQiOiIxLDIsMCwwOzEsMywwLDA7MiwxLDAsMTszLDEsMCwxOzQsMSwxLDE7NSwyLDEsMTs1LDMsMSwzIn0',
+  'ZPF1_eyJ2IjoxLCJuIjoi5biD5Lqa5pav54m55Z-O5Yy6IDAzIiwiciI6NSwiYyI6Niwic3AiOiIwLDAiLCJkcyI6IjUsMCIsImQiOiIwLDE7MCwyOzAsMzswLDQ7MSw0OzMsMzszLDI7MywxOzMsMDs1LDMiLCJrIjoiNCwzOzEsMzs0LDAiLCJybyI6IjIsMiIsInQiOiIyLDEsMCwxOzEsMiwxLDA7MiwzLDEsMSJ9',
+  'ZPF1_eyJ2IjoxLCJuIjoi5biD5Lqa5pav54m55Z-O5Yy6IDA0IiwiciI6NSwiYyI6Niwic3AiOiIwLDAiLCJkcyI6IjUsMCIsImQiOiIwLDE7MywzOzIsMzs1LDQ7NSwxOzAsNCIsImsiOiI0LDM7MSwzIiwicm8iOiIyLDA7MywwIiwidCI6IjEsMCwwLDA7NCwwLDAsMDsxLDIsMCwwOzQsMiwwLDA7Miw0LDAsMTszLDQsMCwxOzEsNCwxLDM7NCw0LDEsMiJ9',
 ];
+
+export const BUILTIN_LEVELS: PathLevel[] = PRESET_CODES.map(decodePathLevel);
